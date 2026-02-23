@@ -12,6 +12,9 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
+    <!-- Cropper.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
+
     <!-- Scripts -->
     <script>
         if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -50,6 +53,17 @@
     @stack('modals')
 
     @livewireScripts
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <script>
+        window.addEventListener('close-modal', event => {
+            // Cara simple untuk menutup modal Flowbite: cari tombol close di modal yang terbuka dan klik
+            const openedModals = document.querySelectorAll('[role="dialog"]:not(.hidden)');
+            openedModals.forEach(modal => {
+                const closeBtn = modal.querySelector('[data-modal-hide]');
+                if (closeBtn) closeBtn.click();
+            });
+        });
+    </script>
 </body>
 
 </html>

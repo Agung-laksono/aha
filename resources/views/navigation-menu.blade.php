@@ -8,6 +8,10 @@
                     <a href="{{ route('dashboard') }}">
                         <x-application-mark class="block h-9 w-auto" />
                     </a>
+                    <!-- Dark Mode Toggle -->
+                    <div class="ms-3 relative">
+                        <x-dark-mode-toggle />
+                    </div>
                 </div>
 
                 <!-- Navigation Links -->
@@ -25,10 +29,7 @@
             </div>
 
             <div class="hidden sm:flex sm:items-center sm:ms-6">
-                <!-- Dark Mode Toggle -->
-                <div class="ms-3 relative">
-                    <x-dark-mode-toggle />
-                </div>
+
 
                 <!-- Teams Dropdown -->
                 @if (Laravel\Jetstream\Jetstream::hasTeamFeatures())
@@ -163,6 +164,11 @@
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link href="{{ route('dashboard') }}" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
+            </x-responsive-nav-link>
+        </div>
+        <div class="pt-2 pb-3 space-y-1">
+            <x-responsive-nav-link href="{{ route('inventory') }}" :active="request()->routeIs('inventory')">
+                {{ __('Inventory') }}
             </x-responsive-nav-link>
         </div>
 

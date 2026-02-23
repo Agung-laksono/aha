@@ -14,5 +14,8 @@ Route::middleware([
     Route::get('/dashboard', function () {
         return view('dashboard');
     })->name('dashboard');
-    Route::get('/inventory', [App\Http\Controllers\Inventory::class, 'index'])->name('inventory');
+    Route::get('/inventory', function () {
+        return view('inventory');
+    })->name('inventory');
+
 });
