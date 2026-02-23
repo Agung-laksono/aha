@@ -10,12 +10,13 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('gudangs', function (Blueprint $table) {
+        Schema::create('pembelians', function (Blueprint $table) {
             $table->id();
-            $table->string('nama');
-            $table->string('lokasi')->nullable();
-            $table->string('deskripsi')->nullable();
-            $table->string('gambar')->nullable();
+            $table->string('nomor_nota')->unique();
+            $table->foreignId('vendor_id')->constrained()->cascadeOnDelete();
+            $table->decimal('total_harga', 15, 2)->default(0);
+            $table->enum('status', ['PO', 'Received', 'Canceled'])->default('PO');
+            $table->date('tanggal');
             $table->timestamps();
         });
     }
@@ -25,6 +26,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('gudangs');
+        Schema::dropIfExists('pembelians');
     }
 };

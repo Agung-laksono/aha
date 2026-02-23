@@ -16,9 +16,9 @@ class BarangSeeder extends Seeder
 
         // 0. Pastikan ada User
         $user = \App\Models\User::firstOrCreate(
-            ['email' => 'admin@admin.com'],
+            ['email' => 'a@a.com'],
             [
-                'name' => 'Admin Dummy',
+                'name' => 'agung',
                 'password' => \Illuminate\Support\Facades\Hash::make('password'),
             ]
         );
@@ -72,7 +72,7 @@ class BarangSeeder extends Seeder
             $barang = \App\Models\Barang::create([
                 'nama' => ucwords($namaProduk),
                 'sku' => 'PROD-' . strtoupper($faker->bothify('??###-####')),
-                'deskripsi' => $faker->paragraph(),
+                'deskripsi' => $faker->sentences(3, true),
                 'sub_kategori_id' => $subKatId,
                 'satuan_id' => $satId,
                 'kategori_id' => \App\Models\SubKategori::find($subKatId)->kategori_id,

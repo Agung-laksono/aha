@@ -10,11 +10,16 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('gudangs', function (Blueprint $table) {
+        Schema::create('vendors', function (Blueprint $table) {
             $table->id();
             $table->string('nama');
-            $table->string('lokasi')->nullable();
-            $table->string('deskripsi')->nullable();
+            $table->string('kontak')->nullable();
+            $table->char('province_id', 2)->nullable();
+            $table->char('regency_id', 4)->nullable();
+            $table->char('district_id', 6)->nullable();
+            $table->char('village_id', 10)->nullable();
+            $table->text('alamat')->nullable();
+            $table->string('tag')->nullable();
             $table->string('gambar')->nullable();
             $table->timestamps();
         });
@@ -25,6 +30,6 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('gudangs');
+        Schema::dropIfExists('vendors');
     }
 };

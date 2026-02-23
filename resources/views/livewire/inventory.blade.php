@@ -30,13 +30,13 @@
     <section class="bg-gray-50 py-8 antialiased dark:bg-gray-900 md:py-5">
         <div class="mx-auto px-4">
             <!-- Heading & Filters -->
-            <div class="mb-4 items-center justify-between space-y-4 sm:flex sm:space-y-0 md:mb-8 gap-4">
-                <!-- Left Side: Search & Filter Actions -->
-                <div class="flex flex-wrap flex-1 items-center gap-3">
+            <div class="mb-4 space-y-3 md:mb-8">
+                <!-- Row 1: Search & Categories -->
+                <div class="flex flex-wrap items-center gap-2">
                     <!-- Search Input -->
-                    <div class="relative w-full max-w-[240px]">
+                    <div class="relative flex-grow md:flex-grow-0 md:min-w-[300px]">
                         <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+                            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 20 20">
                                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
                             </svg>
                         </div>
@@ -45,32 +45,82 @@
                             placeholder="Cari nama/SKU...">
                     </div>
 
-                    <!-- Dropdown Kategori -->
-                    <select wire:model.live="filterKategori" 
-                        class="bg-white border border-gray-200 text-gray-900 text-xs rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white min-w-[140px]">
-                        <option value="">Semua Kategori</option>
-                        @foreach($kategoris as $kat)
-                            <option value="{{ $kat->id }}">{{ $kat->nama }}</option>
-                        @endforeach
-                    </select>
+                    <!-- Dropdowns Group -->
+                    <div class="flex flex-wrap items-center gap-2 flex-grow md:flex-grow-0">
+                        <select wire:model.live="filterKategori" 
+                            class="bg-white border border-gray-200 text-gray-900 text-xs rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white flex-grow sm:flex-grow-0 min-w-[120px]">
+                            <option value="">Kategori: Semua</option>
+                            @foreach($kategoris as $kat)
+                                <option value="{{ $kat->id }}">{{ $kat->nama }}</option>
+                            @endforeach
+                        </select>
 
-                    <!-- Dropdown Sub Kategori -->
-                    <select wire:model.live="filterSubKategori" 
-                        class="bg-white border border-gray-200 text-gray-900 text-xs rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white min-w-[140px] disabled:opacity-50"
-                        {{ !$filterKategori ? 'disabled' : '' }}>
-                        <option value="">Semua Sub</option>
-                        @foreach($subKategorisFilter as $sub)
-                            <option value="{{ $sub->id }}">{{ $sub->nama }}</option>
-                        @endforeach
-                    </select>                    
+                        <select wire:model.live="filterSubKategori" 
+                            class="bg-white border border-gray-200 text-gray-900 text-xs rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white flex-grow sm:flex-grow-0 min-w-[120px] disabled:opacity-50"
+                            {{ !$filterKategori ? 'disabled' : '' }}>
+                            <option value="">Sub: Semua</option>
+                            @foreach($subKategorisFilter as $sub)
+                                <option value="{{ $sub->id }}">{{ $sub->nama }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex flex-wrap gap-2 flex-grow sm:flex-grow-0">
+                        <button wire:click="openPurchaseModal" type="button"
+                            class="flex-1 sm:flex-none flex items-center justify-center rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 transition-all relative">
+                            <svg class="-ms-0.5 me-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                            </svg>
+                            Pembelian
+                            @if(count($purchaseCart) > 0)
+                                <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-lg animate-bounce">
+                                    {{ count($purchaseCart) }}
+                                </span>
+                            @endif
+                        </button>
+
+                        <button data-modal-toggle="modal-barang" data-modal-target="modal-barang" type="button"
+                            class="flex-1 sm:flex-none flex items-center justify-center rounded-lg bg-primary-700 px-4 py-2 text-sm font-medium text-white hover:bg-primary-800 focus:outline-none focus:ring-4 focus:ring-primary-300 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800">
+                            <svg class="-ms-0.5 me-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7v14" />
+                            </svg>
+                            Tambah
+                        </button>
+
+                        <!-- Master Data Dropdown -->
+                        <div class="relative flex-1 sm:flex-none" x-data="{ open: false }">
+                            <button @click="open = !open" type="button"
+                                class="w-full flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 p-2 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            </button>
+                            <div x-show="open" @click.away="open = false" 
+                                class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-100 dark:border-gray-700 z-[60] overflow-hidden"
+                                x-transition:enter="transition ease-out duration-100" x-transition:enter-start="transform opacity-0 scale-95" x-transition:enter-end="transform opacity-100 scale-100">
+                                <div class="p-2 space-y-1">
+                                    <button wire:click="$set('showModalVendor', true)" @click="open = false" class="w-full flex items-center px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-gray-700 rounded-lg transition uppercase tracking-widest text-left">
+                                        <svg class="w-4 h-4 mr-3 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                        Tambah Vendor
+                                    </button>
+                                    <button wire:click="$set('showModalGudang', true)" @click="open = false" class="w-full flex items-center px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-gray-700 rounded-lg transition uppercase tracking-widest text-left">
+                                        <svg class="w-4 h-4 mr-3 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                        Tambah Gudang
+                                    </button>
+                                    <button data-modal-target="modal-satuan" data-modal-toggle="modal-satuan" @click="open = false" class="w-full flex items-center px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-gray-700 rounded-lg transition uppercase tracking-widest text-left border-t dark:border-gray-700 mt-1 pt-3">
+                                        <svg class="w-4 h-4 mr-3 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                                        Kelola Satuan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Right Side: Sort & View Controls -->
-                <div class="flex items-center space-x-2">
-                    <!-- Sort Selection -->
-                    <div class="flex items-center">
-                        <span class="text-[10px] uppercase font-bold text-gray-400 mr-2 hidden md:block">Urut:</span>
-                        <select wire:model.live="sortBy" class="bg-white border border-gray-200 text-gray-900 text-xs rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-2 dark:bg-gray-800 dark:border-gray-600 dark:text-white">
+                <!-- Row 2: Sort & View Controls -->
+                <div class="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-gray-800 p-2 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] uppercase font-bold text-gray-400 hidden sm:block">Sorting:</span>
+                        <select wire:model.live="sortBy" class="bg-gray-50 border border-gray-200 text-gray-900 text-xs rounded-lg focus:ring-primary-500 focus:border-primary-500 block p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                             <option value="newest">Terbaru</option>
                             <option value="oldest">Terlama</option>
                             <option value="az">Nama A-Z</option>
@@ -80,38 +130,34 @@
                         </select>
                     </div>
 
-                    <!-- View Mode Toggle -->
-                    <div class="inline-flex rounded-lg shadow-sm">
-                        <button type="button" wire:click="$set('viewMode', 'grid')" 
-                            class="px-3 py-2 text-sm font-medium border border-gray-200 rounded-s-lg hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-primary-700 focus:text-primary-700 dark:bg-gray-800 dark:border-gray-600 dark:text-white {{ $viewMode === 'grid' ? 'bg-gray-100 text-primary-700 dark:bg-gray-700' : 'bg-white' }}">
-                            <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M4 4h4v4H4V4Zm6 0h4v4h-4V4Zm6 0h4v4h-4V4ZM4 10h4v4H4v-4Zm6 0h4v4h-4v-4Zm6 0h4v4h-4v-4ZM4 16h4v4H4v-4Zm6 0h4v4h-4v-4Zm6 0h4v4h-4v-4Z"/>
-                            </svg>
-                        </button>
-                        <button type="button" wire:click="$set('viewMode', 'list')" 
-                            class="px-3 py-2 text-sm font-medium border-t border-b border-r border-gray-200 rounded-e-lg hover:bg-gray-100 focus:z-10 focus:ring-2 focus:ring-primary-700 focus:text-primary-700 dark:bg-gray-800 dark:border-gray-600 dark:text-white {{ $viewMode === 'list' ? 'bg-gray-100 text-primary-700 dark:bg-gray-700' : 'bg-white' }}">
-                            <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9 8h10M9 12h10M9 16h10M4 8h.01M4 12h.01M4 16h.01"/>
-                            </svg>
-                        </button>
-                    </div>
+                    <div class="flex items-center gap-3">
+                        <!-- View Toggle -->
+                        <div class="inline-flex rounded-lg shadow-sm bg-gray-50 dark:bg-gray-700 p-1">
+                            <button type="button" wire:click="$set('viewMode', 'grid')" 
+                                class="p-1.5 rounded-md transition-colors {{ $viewMode === 'grid' ? 'bg-white dark:bg-gray-600 text-primary-700 shadow-sm' : 'text-gray-500' }}">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M4 4h4v4H4V4Zm6 0h4v4h-4V4Zm6 0h4v4h-4V4ZM4 10h4v4H4v-4Zm6 0h4v4h-4v-4Zm6 0h4v4h-4v-4ZM4 16h4v4H4v-4Zm6 0h4v4h-4v-4Zm6 0h4v4h-4v-4Z"/>
+                                </svg>
+                            </button>
+                            <button type="button" wire:click="$set('viewMode', 'list')" 
+                                class="p-1.5 rounded-md transition-colors {{ $viewMode === 'list' ? 'bg-white dark:bg-gray-600 text-primary-700 shadow-sm' : 'text-gray-500' }}">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9 8h10M9 12h10M9 16h10M4 8h.01M4 12h.01M4 16h.01"/>
+                                </svg>
+                            </button>
+                        </div>
 
-                    <!-- Grid Adjustment -->
-                    @if($viewMode === 'grid')
-                    <div class="flex items-center space-x-1 border-l pl-2 border-gray-200 dark:border-gray-600">
-                        <select wire:model.live="gridCols" class="bg-transparent border-0 text-[10px] font-black focus:ring-0 p-1 dark:text-white uppercase">
-                            <option value="1">1 Col</option>
-                            <option value="2">2 Cols</option>
-                            <option value="3">3 Cols</option>
-                            <option value="4">4 Cols</option>
-                            <option value="5">5 Cols</option>
-                            <option value="6">6 Cols</option>
-                            <option value="8">8 Cols</option>
-                            <option value="10">10 Cols</option>
-                            <option value="12">12 Cols</option>
-                        </select>
+                        <!-- Grid Adj -->
+                        @if($viewMode === 'grid')
+                            <div class="flex items-center gap-1 border-l pl-3 border-gray-200 dark:border-gray-600">
+                                 <select wire:model.live="gridCols" class="bg-transparent border-0 text-[10px] font-black focus:ring-0 p-1 dark:text-white uppercase cursor-pointer">
+                                    @foreach([1, 2, 3, 4, 5, 6, 8, 10, 12] as $col)
+                                        <option value="{{ $col }}">{{ $col }} Cols</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
                     </div>
-                    @endif
                 </div>
             </div>
 
@@ -163,7 +209,7 @@
                                         class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 p-1.5 bg-black/30 backdrop-blur-md rounded-xl border border-white/20 shadow-2xl z-20 group-hover:bg-black/40 transition-colors">
                                         @foreach($barang->gambarBarangs as $img)
                                                                                     @php 
-                                                                                                                $imgPath = str_starts_with($img->path, 'http')
+                                                                                                                                                                                    $imgPath = str_starts_with($img->path, 'http')
                                                                                         ? $img->path
                                                                                         : asset('storage/' . $img->path); 
                                                                                     @endphp
@@ -200,6 +246,19 @@
                                         </p>
 
                                         <div class="flex gap-1">
+                                            @php
+                                                $isInCart = collect($purchaseCart)->contains('barang_id', $barang->id);
+                                            @endphp
+                                            <button type="button" wire:click="addToPurchaseCart({{ $barang->id }})"
+                                                class="flex items-center justify-center w-10 h-10 rounded-lg transition-all 
+                                                {{ $isInCart ? 'bg-green-100 text-green-600 cursor-default' : 'bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white shadow-sm active:scale-95' }}">
+                                                @if($isInCart)
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+                                                @else
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                                                @endif
+                                            </button>
+                                            
                                             <button type="button"
                                                 class="p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors dark:hover:bg-gray-700">
                                                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -247,7 +306,20 @@
                                 <p class="text-sm font-black text-gray-900 dark:text-white">Rp{{ $hargaJual }}</p>
                             </div>
                             <div class="flex gap-1">
-                                <button type="button" class="p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors">
+                                @php
+                                    $isInCart = collect($purchaseCart)->contains('barang_id', $barang->id);
+                                @endphp
+                                <button type="button" wire:click="addToPurchaseCart({{ $barang->id }})"
+                                    class="flex items-center justify-center w-8 h-8 rounded-lg transition-all 
+                                    {{ $isInCart ? 'bg-green-100 text-green-600' : 'bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white' }}">
+                                    @if($isInCart)
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+                                    @else
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                                    @endif
+                                </button>
+                                
+                                <button type="button" class="p-1 text-gray-500 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                     </svg>
@@ -277,29 +349,71 @@
             @endif
         </div>
     </section>
+
+    <!-- Floating Cart Button -->
+    @if(count($purchaseCart) > 0)
+    <div class="fixed bottom-6 right-6 z-[40]">
+        <button type="button" wire:click="openPurchaseModal"
+            class="group relative flex items-center justify-center w-16 h-16 bg-orange-600 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+            <span class="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-black min-w-[24px] h-6 flex items-center justify-center rounded-full border-2 border-white shadow-lg">
+                {{ count($purchaseCart) }}
+            </span>
+            
+            <!-- Tooltip -->
+            <div class="absolute right-full mr-3 bg-gray-900/90 text-white text-[10px] uppercase font-black py-2 px-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                Lihat Nota ({{ count($purchaseCart) }} Item)
+            </div>
+        </button>
+    </div>
+    @endif
     @include('livewire.Inventoryfolder.modal-filter')
     @include('livewire.Inventoryfolder.modal-barang')
     @include('livewire.Inventoryfolder.modal-kategori')
     @include('livewire.Inventoryfolder.modal-subKategori')
     @include('livewire.Inventoryfolder.modal-satuan')
+    @include('livewire.Inventoryfolder.modal-pembelian')
+    @include('livewire.Inventoryfolder.modal-vendor')
+    @include('livewire.Inventoryfolder.modal-gudang')
 
     @script
     <script>
         $wire.on('close-modal', () => {
-            // Menutup modal Flowbite secara manual jika diperlukan
-            const modalEl = document.getElementById('modal-barang');
-            if (window.FlowbiteInstances) {
-                const modal = window.FlowbiteInstances.getInstance('Modal', 'modal-barang');
-                if (modal) {
-                    modal.hide();
-                }
-            } else {
-                // Fallback jika Instance tidak ditemukan
-                modalEl.classList.add('hidden');
-                modalEl.classList.remove('flex');
-                document.querySelector('[modal-backdrop]')?.remove();
-                document.body.classList.remove('overflow-hidden');
-            }
+             // Existing Flowbite logic
+             const modalEl = document.getElementById('modal-barang');
+             if (window.FlowbiteInstances) {
+                 const modal = window.FlowbiteInstances.getInstance('Modal', 'modal-barang');
+                 if (modal) {
+                     modal.hide();
+                 }
+             } else {
+                 modalEl.classList.add('hidden');
+                 modalEl.classList.remove('flex');
+                 document.querySelector('[modal-backdrop]')?.remove();
+                 document.body.classList.remove('overflow-hidden');
+             }
+        });
+
+        $wire.on('item-added-to-cart', (event) => {
+            // Simple logic for toast feedback
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-24 right-6 bg-gray-900/90 text-white px-6 py-3 rounded-2xl shadow-2xl z-[100] border border-white/10 animate-fade-in-up flex items-center gap-3 overflow-hidden';
+            toast.innerHTML = `
+                <div class="p-1.5 bg-green-500 rounded-lg">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase text-gray-400 leading-none mb-1">Berhasil Ditambahkan</p>
+                    <p class="text-xs font-bold leading-none">${event[0].name}</p>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2', 'scale-95', 'transition-all', 'duration-500');
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
         });
     </script>
     @endscript
