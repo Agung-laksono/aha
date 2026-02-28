@@ -144,7 +144,7 @@ return [
     */
 
     'features' => [
-        Features::registration(),
+        // Features::registration(), // Disable Open Registration for AHA System
         Features::resetPasswords(),
         // Features::emailVerification(),
         Features::updateProfileInformation(),

@@ -5,9 +5,11 @@ namespace App\Models;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 
-class PembelianDetail extends Model
+class PembayaranPembelian extends Model
 {
     use LogsActivity;
+
+    protected $table = 'pembayaran_pembelian';
     protected $guarded = ['id'];
 
     public function pembelian()
@@ -15,13 +17,8 @@ class PembelianDetail extends Model
         return $this->belongsTo(Pembelian::class);
     }
 
-    public function barang()
+    public function akunKas()
     {
-        return $this->belongsTo(Barang::class);
-    }
-
-    public function gudang()
-    {
-        return $this->belongsTo(Gudang::class);
+        return $this->belongsTo(AkunKas::class, 'akun_kas_id');
     }
 }

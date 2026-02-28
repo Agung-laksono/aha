@@ -15,6 +15,7 @@ use App\Models\GambarBarang;
 use App\Models\Vendor;
 use App\Models\Pembelian;
 use App\Models\PembelianDetail;
+use App\Models\CatatanPreset;
 use App\Models\Province;
 use App\Models\Regency;
 use App\Models\District;
@@ -42,6 +43,7 @@ class Inventory extends Component
     public $namaBarang, $skuBarang, $deskripsiBarang, $satuan_id, $sub_kategori_id;
     public $harga_beli, $harga_jual;
     public $gambars = [];
+    public $uploadGambars = [];
     public $perPage = 24;
 
     // Filter & Sort Properties with URL persistence
@@ -73,6 +75,16 @@ class Inventory extends Component
     public $showVendorPicker = false;
     public $searchBarangPurchase = '';
 
+    // Advanced Purchase Properties
+    public $ongkir = 0;
+    public $biayaLain = 0;
+    public $metodePembayaran = 'Cash';
+    public $jatuhTempo = '';
+    public $akunKasId = '';
+    public $jumlahDP = 0;
+    public $invoiceFile = null;
+    public $compressedInvoice = null; // For the base64 compressed image
+
     // Master Data Form Properties
     public $showModalVendor = false;
     public $showModalGudang = false;
@@ -86,7 +98,48 @@ class Inventory extends Component
     public $village_id = '';
     public $alamatVendor = '';
     public $tagVendor = '';
+
+    // Granular Receiving Properties
+    public $qtyReceived = []; // [detail_id => qty]
+    public $gudangReceived = []; // [detail_id => gudang_id]
     public $gambarVendor = null;
+
+    // Catatan Presets
+    public function getHistoryNotes($barangId)
+    {
+        return PembelianDetail::where('barang_id', $barangId)
+            ->whereNotNull('catatan')
+            ->where('catatan', '!=', '')
+            ->where('catatan', '!=', '<p><br></p>')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->pluck('catatan')
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
+    public function savePreset($teks, $tipe)
+    {
+        if (empty($teks) || $teks === '<p><br></p>')
+            return;
+
+        CatatanPreset::updateOrCreate(
+            ['user_id' => Auth::id(), 'teks' => $teks],
+            ['tipe' => $tipe]
+        );
+
+        $this->dispatch('preset-saved', ['tipe' => $tipe, 'presets' => $this->getPresets($tipe)]);
+    }
+
+    public function getPresets($tipe)
+    {
+        return CatatanPreset::where('user_id', Auth::id())
+            ->where('tipe', $tipe)
+            ->orderBy('created_at', 'desc')
+            ->pluck('teks')
+            ->toArray();
+    }
 
     // Region Lists
     public $provinces = [];
@@ -94,9 +147,162 @@ class Inventory extends Component
     public $districts = [];
     public $villages = [];
 
+    // Mutasi Kas Properties
+    public $showModalKas = false;
+    public $selectedAkunKasId = null;
+    public $tipeKas = 'Masuk'; // Masuk or Keluar
+    public $jumlahKas = 0;
+    public $kategoriKas = '';
+    public $tanggalKas = '';
+    public $keteranganKas = '';
+
+    // Akun Kas Form
+    public $namaAkunKas = '';
+    public $kodeAkunKas = '';
+    public $saldoAwal = 0;
+    public $pjUserKasId = null;
+
     // Gudang Form
     public $namaGudang = '';
     public $lokasiGudang = '';
+
+    // Transaction History
+    public $showHistoryModal = false;
+    public $selectedPembelianId = null;
+    public $searchHistory = '';
+    public $qtyRetur = []; // [detail_id => qty]
+
+    public function updatedMetodePembayaran($value)
+    {
+        if ($value === 'Cash') {
+            $this->jumlahDP = 0;
+            $this->jatuhTempo = '';
+        } else {
+            // Kredit
+            $this->jatuhTempo = now()->addDays(30)->format('Y-m-d');
+        }
+    }
+
+    public function updatedJumlahDP($value)
+    {
+        // Force re-render of components dependent on DP
+        if ($value > 0 && $this->metodePembayaran === 'Cash') {
+            $this->metodePembayaran = 'Kredit';
+            $this->jatuhTempo = now()->addDays(30)->format('Y-m-d');
+        }
+    }
+
+    #[Computed]
+    public function pembelians()
+    {
+        $query = Pembelian::with(['vendor', 'details.barang', 'pembayarans', 'dokumens']);
+
+        if ($this->searchHistory) {
+            $query->where('nomor_nota', 'like', '%' . $this->searchHistory . '%')
+                ->orWhereHas('vendor', function ($q) {
+                    $q->where('nama', 'like', '%' . $this->searchHistory . '%');
+                });
+        }
+
+        return $query->latest()->get();
+    }
+
+    #[Computed]
+    public function userAkunKas()
+    {
+        return \App\Models\AkunKas::with('user')
+            ->where('user_id', auth()->id())
+            ->orWhere('team_id', auth()->user()->current_team_id)
+            ->get();
+    }
+
+    #[Computed]
+    public function teamUsers()
+    {
+        return auth()->user()->currentTeam->allUsers();
+    }
+
+    #[Computed]
+    public function mutasiKasList()
+    {
+        if (!$this->selectedAkunKasId)
+            return collect();
+        return \App\Models\MutasiKas::where('akun_kas_id', $this->selectedAkunKasId)
+            ->latest()
+            ->take(20)
+            ->get();
+    }
+
+    #[Computed]
+    public function selectedPembelian()
+    {
+        if (!$this->selectedPembelianId)
+            return null;
+        return Pembelian::with(['vendor', 'details.barang', 'details.gudang', 'pembayarans', 'dokumens'])->find($this->selectedPembelianId);
+    }
+
+    #[Computed]
+    public function isPurchaseReady()
+    {
+        // 1. Vendor & Meta
+        if (!$this->selectedVendor || !$this->nomorNota || !$this->tanggalPembelian)
+            return false;
+
+        // 2. Cart
+        if (count($this->purchaseCart) === 0)
+            return false;
+
+        // 3. Payment Method
+        if (!$this->metodePembayaran)
+            return false;
+
+        // 4. Specific Payment Logic
+        if ($this->metodePembayaran === 'Cash') {
+            if (!$this->akunKasId)
+                return false;
+        } else {
+            // Kredit
+            if (!$this->jatuhTempo)
+                return false;
+            // Jika ada DP, wajib pilih Akun Kas
+            if ($this->jumlahDP > 0 && !$this->akunKasId)
+                return false;
+        }
+
+        // 5. Proof of Purchase
+        if (!$this->compressedInvoice)
+            return false;
+
+        return true;
+    }
+
+    public function selectPembelian($id)
+    {
+        $this->selectedPembelianId = $id;
+
+        // Initialize receiving inputs for PO details
+        $pembelian = Pembelian::with('details')->find($id);
+        if ($pembelian) {
+            foreach ($pembelian->details as $d) {
+                if ($d->status_item !== 'Received') {
+                    $this->qtyReceived[$d->id] = $d->qty_pesan - $d->qty_terima;
+                    $this->gudangReceived[$d->id] = $d->gudang_id ?? (Gudang::first()->id ?? '');
+                }
+            }
+        }
+    }
+
+
+    public function showHistory()
+    {
+        $this->showPurchaseModal = false;
+        $this->showHistoryModal = true;
+
+        $firstPembelian = $this->pembelians->first();
+        if ($firstPembelian) {
+            $this->selectedPembelianId = $firstPembelian->id;
+        }
+    }
     public $deskripsiGudang = '';
     public $gambarGudang = null;
 
@@ -118,9 +324,16 @@ class Inventory extends Component
 
     public function updatedUploadGambars()
     {
-        $this->validate([
-            'uploadGambars.*' => 'image|max:2048',
-        ]);
+        $toValidate = [];
+        foreach ($this->uploadGambars as $index => $gambar) {
+            if (!is_string($gambar)) {
+                $toValidate['uploadGambars.' . $index] = 'image|max:2048';
+            }
+        }
+
+        if (!empty($toValidate)) {
+            $this->validate($toValidate);
+        }
 
         foreach ($this->uploadGambars as $gambar) {
             $this->gambars[] = $gambar;
@@ -137,13 +350,44 @@ class Inventory extends Component
         }
     }
 
-    public function updateCroppedImage($index, $base64Data)
+    public function updateCroppedImage($index, $base64Data, $target = 'gambars')
     {
-        // Data base64 dari Cropper.js
-        // Kita simpan saja metadata atau data mentahnya untuk diproses saat store
-        if (isset($this->gambars[$index])) {
-            $this->gambars[$index] = $base64Data;
+        if ($target === 'gambars') {
+            if (isset($this->gambars[$index])) {
+                $this->gambars[$index] = $base64Data;
+            }
+        } elseif ($target === 'gambarVendor') {
+            $this->gambarVendor = $base64Data;
+        } elseif ($target === 'gambarGudang') {
+            $this->gambarGudang = $base64Data;
         }
+    }
+
+    protected function saveImage($fileOrBase64, $folder)
+    {
+        if (!$fileOrBase64)
+            return null;
+
+        if (is_string($fileOrBase64) && str_starts_with($fileOrBase64, 'data:image')) {
+            $image_parts = explode(";base64,", $fileOrBase64);
+            $extension = 'png'; // Default
+            if (isset($image_parts[0])) {
+                if (strpos($image_parts[0], 'jpeg') !== false)
+                    $extension = 'jpg';
+                elseif (strpos($image_parts[0], 'webp') !== false)
+                    $extension = 'webp';
+            }
+            $image_base64 = base64_decode($image_parts[1]);
+            $filename = $folder . '/' . uniqid() . '.' . $extension;
+            \Illuminate\Support\Facades\Storage::disk('public')->put($filename, $image_base64);
+            return $filename;
+        }
+
+        if ($fileOrBase64 instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile) {
+            return $fileOrBase64->store($folder, 'public');
+        }
+
+        return null;
     }
 
     public function updatedNamaBarang()
@@ -177,7 +421,7 @@ class Inventory extends Component
     #[Computed]
     public function barangs()
     {
-        $query = Barang::with(['gambarBarangs', 'hargaJualTerakhir', 'kategori', 'subKategori']);
+        $query = Barang::with(['gambarBarangs', 'hargaJualTerakhir', 'kategori', 'subKategori', 'stoks.gudang']);
 
         // Search filter
         if ($this->search) {
@@ -260,11 +504,29 @@ class Inventory extends Component
 
     protected function fetchWilayah(string $url): array
     {
-        $key = 'wilayah_' . md5($url);
-        return Cache::remember($key, now()->addHours(6), function () use ($url) {
+        $filename = md5($url) . '.json';
+        $path = storage_path('app/wilayah/' . $filename);
+
+        // 1. Check if local JSON exists
+        if (file_exists($path)) {
+            $data = json_decode(file_get_contents($path), true);
+            if ($data)
+                return $data;
+        }
+
+        // 2. If not, fetch from API and save locally
+        try {
             $response = Http::withoutVerifying()->get($url);
-            return $response->json()['data'] ?? [];
-        });
+            $data = $response->json()['data'] ?? [];
+
+            if (!empty($data)) {
+                file_put_contents($path, json_encode($data));
+            }
+
+            return $data;
+        } catch (\Exception $e) {
+            return [];
+        }
     }
 
     public function render()
@@ -283,6 +545,11 @@ class Inventory extends Component
                 : collect(),
             'satuans' => Satuan::all(),
             'stoks' => Stok::all(),
+            'vendors' => Vendor::when($this->searchVendor, function ($q) {
+                $q->where('nama', 'like', '%' . $this->searchVendor . '%')
+                    ->orWhere('kontak', 'like', '%' . $this->searchVendor . '%')
+                    ->orWhere('tag', 'like', '%' . $this->searchVendor . '%');
+            })->orderBy('nama')->limit(20)->get(),
             'searchBarangResults' => $this->searchBarangPurchase
                 ? Barang::where('nama', 'like', '%' . $this->searchBarangPurchase . '%')
                     ->orWhere('sku', 'like', '%' . $this->searchBarangPurchase . '%')
@@ -297,6 +564,7 @@ class Inventory extends Component
         $this->validate([
             'namaKategori' => 'required|unique:kategoris,nama',
             'kodeKategori' => 'required|unique:kategoris,kode',
+            'deskripsiKategori' => 'required',
         ]);
 
         Kategori::create([
@@ -352,6 +620,13 @@ class Inventory extends Component
 
     public function storeBarang()
     {
+        // RBAC Check: Member and Sales cannot create/edit Barang
+        $user = auth()->user();
+        if ($user->hasTeamRole($user->currentTeam, 'member') || $user->hasTeamRole($user->currentTeam, 'sales')) {
+            session()->flash('error', 'Akses ditolak. Anda tidak memiliki hak untuk menambah atau mengubah data barang.');
+            return;
+        }
+
         $this->validate([
             'namaBarang' => [
                 'required',
@@ -391,23 +666,15 @@ class Inventory extends Component
 
             if ($this->gambars) {
                 foreach ($this->gambars as $index => $gambar) {
-                    if (is_string($gambar) && str_starts_with($gambar, 'data:image')) {
-                        // Jika gambar adalah base64 (hasil crop)
-                        $image_parts = explode(";base64,", $gambar);
-                        $image_base64 = base64_decode($image_parts[1]);
-                        $filename = 'Barang/' . uniqid() . '.png';
-                        \Illuminate\Support\Facades\Storage::disk('public')->put($filename, $image_base64);
-                        $path = $filename;
-                    } else {
-                        // Jika gambar adalah TemporaryUploadedFile asli
-                        $path = $gambar->store('Barang', 'public');
-                    }
+                    $path = $this->saveImage($gambar, 'Barang');
 
-                    GambarBarang::create([
-                        'barang_id' => $barang->id,
-                        'path' => $path,
-                        'gambar_utama' => $index === 0,
-                    ]);
+                    if ($path) {
+                        GambarBarang::create([
+                            'barang_id' => $barang->id,
+                            'path' => $path,
+                            'is_utama' => ($index === 0)
+                        ]);
+                    }
                 }
             }
 
@@ -445,12 +712,57 @@ class Inventory extends Component
 
     public function openPurchaseModal()
     {
+        // Mutually exclusive with history
+        $this->showHistoryModal = false;
+
         // Don't reset purchaseCart here to allow picking items from the list
         if (!$this->tanggalPembelian)
             $this->tanggalPembelian = date('Y-m-d');
-        if (!$this->nomorNota)
-            $this->nomorNota = 'PO-' . date('YmdHis');
+
+        $this->generateNomorNota();
         $this->showPurchaseModal = true;
+    }
+
+    private function generateNomorNota()
+    {
+        $prefix = "NP"; // Nota Pembelian
+        $date = date('Ymd');
+        $vendorCode = "XXX";
+
+        if ($this->selectedVendor) {
+            $vendorCode = $this->getVendorCode($this->selectedVendor['nama']);
+        }
+
+        $basePrefix = "{$prefix}/{$vendorCode}/{$date}/";
+
+        $lastPurchase = Pembelian::where('nomor_nota', 'like', $basePrefix . '%')
+            ->orderBy('nomor_nota', 'desc')
+            ->first();
+
+        $nextNumber = 1;
+        if ($lastPurchase) {
+            $parts = explode('/', $lastPurchase->nomor_nota);
+            $lastNum = (int) end($parts);
+            $nextNumber = $lastNum + 1;
+        }
+
+        $this->nomorNota = $basePrefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+    }
+
+    private function getVendorCode($name)
+    {
+        $words = explode(' ', preg_replace('/[^A-Za-z0-9 ]/', '', $name));
+        $words = array_filter($words);
+
+        if (count($words) >= 3) {
+            $code = $words[0][0] . $words[1][0] . $words[2][0];
+        } elseif (count($words) == 2) {
+            $code = $words[0][0] . substr($words[1], 0, 2);
+        } else {
+            $code = substr($words[0], 0, 3);
+        }
+
+        return strtoupper(str_pad($code, 3, 'X', STR_PAD_RIGHT));
     }
 
     public function clearPurchaseCart()
@@ -469,8 +781,20 @@ class Inventory extends Component
 
     public function selectVendor($id, $nama)
     {
-        $this->selectedVendor = ['id' => $id, 'nama' => $nama];
+        $vendor = Vendor::find($id);
+        $this->selectedVendor = [
+            'id' => $id,
+            'nama' => $vendor?->nama ?? $nama,
+            'kontak' => $vendor?->kontak,
+            'alamat' => $vendor?->alamat,
+            'tag' => $vendor?->tag,
+            'gambar' => $vendor?->gambar,
+        ];
         $this->showVendorPicker = false;
+        $this->searchVendor = '';
+
+        // Update Nota with vendor initials
+        $this->generateNomorNota();
     }
 
     public function addToPurchaseCart($barangId)
@@ -493,6 +817,8 @@ class Inventory extends Component
             'harga' => $barang->hargaBeliTerakhir->harga ?? 0,
             'gudang_id' => Gudang::first()->id ?? null,
             'status' => 'Received', // Default to received for simplicity, user can change
+            'catatan' => '',
+            'catatan_internal' => '',
         ];
 
         $this->searchBarangPurchase = '';
@@ -512,57 +838,449 @@ class Inventory extends Component
             'nomorNota' => 'required|unique:pembelians,nomor_nota',
             'tanggalPembelian' => 'required|date',
             'purchaseCart' => 'required|array|min:1',
+            'metodePembayaran' => 'required',
+            'akunKasId' => [
+                'required_if:metodePembayaran,Cash',
+                function ($attribute, $value, $fail) {
+                    if ($this->metodePembayaran === 'Kredit' && $this->jumlahDP > 0 && empty($value)) {
+                        $fail('Sedang ada DP, harap pilih Akun Kas asal dana.');
+                    }
+                }
+            ],
+            'jatuhTempo' => 'required_if:metodePembayaran,Kredit',
+            'compressedInvoice' => [
+                'required',
+                function ($attribute, $value, $fail) {
+                    if (!is_string($value)) {
+                        $validator = \Illuminate\Support\Facades\Validator::make(
+                            [$attribute => $value],
+                            [$attribute => 'image|max:2048']
+                        );
+                        if ($validator->fails()) {
+                            $fail($validator->errors()->first($attribute));
+                        }
+                    }
+                }
+            ],
+        ], [
+            'selectedVendor.required' => 'Pilih vendor terlebih dahulu.',
+            'nomorNota.required' => 'Nomor nota wajib diisi.',
+            'nomorNota.unique' => 'Nomor nota sudah terdaftar di sistem.',
+            'tanggalPembelian.required' => 'Tanggal transaksi wajib diisi.',
+            'purchaseCart.min' => 'Keranjang masih kosong, tambahkan minimal 1 barang.',
+            'metodePembayaran.required' => 'Pilih metode pembayaran.',
+            'akunKasId.required_if' => 'Pilih Akun Kas untuk pembayaran tunai.',
+            'jatuhTempo.required_if' => 'Tanggal jatuh tempo wajib diisi untuk transaksi kredit.',
+            'compressedInvoice.required' => 'Bukti nota/invoice wajib diunggah.',
         ]);
 
         DB::transaction(function () {
-            $totalHarga = collect($this->purchaseCart)->sum(fn($i) => $i['qty'] * $i['harga']);
+            $subtotal = collect($this->purchaseCart)->sum(fn($i) => $i['qty'] * $i['harga']);
+            $totalQty = collect($this->purchaseCart)->sum('qty');
+            $totalTagihan = $subtotal + (float) ($this->ongkir ?: 0) + (float) ($this->biayaLain ?: 0);
 
-            // Determine overall status based on items
+            // Distribution of Landed Cost (Ongkir & Biaya Lain)
+            $additionalCostPerItem = $totalQty > 0 ? (($this->ongkir ?: 0) + ($this->biayaLain ?: 0)) / $totalQty : 0;
+
+            // Determine status
             $hasPO = collect($this->purchaseCart)->contains('status', 'PO');
             $hasPending = collect($this->purchaseCart)->contains('status', 'Pending');
             $overallStatus = ($hasPO || $hasPending) ? 'PO' : 'Received';
 
+            // Determine payment status
+            $statusPembayaran = ($this->metodePembayaran === 'Cash') ? 'Paid' : (($this->jumlahDP > 0) ? 'Partial' : 'Unpaid');
+
             $pembelian = Pembelian::create([
                 'nomor_nota' => $this->nomorNota,
                 'vendor_id' => $this->selectedVendor['id'],
-                'total_harga' => $totalHarga,
+                'total_harga' => $subtotal,
+                'biaya_ongkir' => $this->ongkir ?: 0,
+                'biaya_lain' => $this->biayaLain ?: 0,
+                'metode_pembayaran' => $this->metodePembayaran,
+                'status_pembayaran' => $statusPembayaran,
                 'status' => $overallStatus,
                 'tanggal' => $this->tanggalPembelian,
+                'jatuh_tempo' => $this->metodePembayaran === 'Kredit' ? $this->jatuhTempo : null,
             ]);
 
             foreach ($this->purchaseCart as $item) {
                 $qtyTerima = ($item['status'] === 'Received') ? $item['qty'] : 0;
+
+                // Landed Cost: Base Price + Pro-rated additional costs
+                $landedCost = $item['harga'] + $additionalCostPerItem;
 
                 PembelianDetail::create([
                     'pembelian_id' => $pembelian->id,
                     'barang_id' => $item['barang_id'],
                     'qty_pesan' => $item['qty'],
                     'qty_terima' => $qtyTerima,
-                    'harga_beli' => $item['harga'],
-                    'gudang_id' => $item['gudang_id'],
+                    'harga_beli' => $item['harga'], // Price from vendor
+                    'gudang_id' => ($item['status'] === 'Received') ? $item['gudang_id'] : null,
                     'status_item' => $item['status'],
+                    'catatan' => $item['catatan'],
+                    'catatan_internal' => $item['catatan_internal'],
                 ]);
 
                 // Update Stok if received
                 if ($qtyTerima > 0 && $item['gudang_id']) {
-                    Stok::updateOrCreate(
-                        ['barang_id' => $item['barang_id'], 'gudang_id' => $item['gudang_id']],
-                        ['jumlah' => DB::raw("jumlah + $qtyTerima")]
-                    );
+                    $stok = Stok::firstOrNew([
+                        'barang_id' => $item['barang_id'],
+                        'gudang_id' => $item['gudang_id']
+                    ]);
+                    $stok->jumlah = ($stok->exists ? $stok->jumlah : 0) + $qtyTerima;
+                    $stok->save();
 
-                    // Update Harga Beli Terakhir
+                    // Update Harga Beli Terakhir (using Landed Cost for accurate valuation)
                     HargaBeli::create([
                         'barang_id' => $item['barang_id'],
-                        'harga' => $item['harga'],
+                        'harga' => $landedCost,
                         'user_id' => Auth::id() ?? 1,
+                    ]);
+                }
+            }
+
+            // Record Payment if Cash or Credit with DP
+            $isCash = $this->metodePembayaran === 'Cash';
+            $isCreditWithDP = $this->metodePembayaran === 'Kredit' && $this->jumlahDP > 0;
+
+            if (($isCash || $isCreditWithDP) && $this->akunKasId) {
+                $bayar = $isCash ? $totalTagihan : $this->jumlahDP;
+
+                \App\Models\PembayaranPembelian::create([
+                    'pembelian_id' => $pembelian->id,
+                    'akun_kas_id' => $this->akunKasId,
+                    'jumlah_bayar' => $bayar,
+                    'tanggal_bayar' => $this->tanggalPembelian,
+                    'catatan' => $isCash ? 'Pembayaran lunas saat transaksi.' : 'Pembayaran Uang Muka (DP).',
+                ]);
+
+                // Update Kas Balance
+                $akun = \App\Models\AkunKas::find($this->akunKasId);
+                if ($akun) {
+                    $akun->decrement('saldo_saat_ini', $bayar);
+
+                    // Record Mutasi Kas History
+                    \App\Models\MutasiKas::create([
+                        'akun_kas_id' => $this->akunKasId,
+                        'user_id' => auth()->id(),
+                        'tipe' => 'Keluar',
+                        'kategori' => 'Pembelian',
+                        'jumlah' => $bayar,
+                        'tanggal' => $this->tanggalPembelian,
+                        'keterangan' => ($isCash ? 'Pembelian Barang (Nota: ' : 'DP Pembelian Barang (Nota: ') . $pembelian->nomor_nota . ')',
+                    ]);
+                }
+            }
+
+            // Save Compressed Invoice (Base64 or normal upload via saveImage)
+            if ($this->compressedInvoice) {
+                $path = $this->saveImage($this->compressedInvoice, 'pembelian/dokumen');
+                if ($path) {
+                    \App\Models\DokumenPembelian::create([
+                        'pembelian_id' => $pembelian->id,
+                        'file_path' => $path,
+                        'nama_file' => 'Nota Fisik ' . $pembelian->nomor_nota,
                     ]);
                 }
             }
         });
 
-        session()->flash('success', 'Transaksi Pembelian ' . $this->nomorNota . ' berhasil disimpan!');
+        session()->flash('success', 'Transaksi Pro ' . $this->nomorNota . ' berhasil disimpan!');
         $this->showPurchaseModal = false;
-        $this->reset(['purchaseCart', 'selectedVendor', 'nomorNota']);
+        $this->reset(['purchaseCart', 'selectedVendor', 'nomorNota', 'ongkir', 'biayaLain', 'metodePembayaran', 'jatuhTempo', 'akunKasId', 'jumlahDP', 'compressedInvoice']);
+    }
+
+    public function cancelPembelian($id)
+    {
+        // Team Permission Check
+        if (!auth()->user()->hasTeamPermission(auth()->user()->currentTeam, 'cancel')) {
+            $this->dispatch('error-retur', ['message' => 'Anda tidak memiliki akses untuk membatalkan transaksi.']);
+            return;
+        }
+
+        DB::transaction(function () use ($id) {
+            $pembelian = Pembelian::with(['details', 'pembayarans'])->findOrFail($id);
+
+            if ($pembelian->status === 'Cancelled')
+                return;
+
+            // 1. Reverse Stock if Received
+            if ($pembelian->status === 'Received') {
+                foreach ($pembelian->details as $detail) {
+                    if ($detail->qty_terima > 0 && $detail->gudang_id) {
+                        $stok = Stok::where('barang_id', $detail->barang_id)
+                            ->where('gudang_id', $detail->gudang_id)
+                            ->first();
+
+                        if ($stok) {
+                            $stok->jumlah -= $detail->qty_terima;
+                            $stok->save();
+                        }
+                    }
+                }
+            }
+
+            // 2. Reverse Payments if any (Refund Money to Kas)
+            foreach ($pembelian->pembayarans as $pembayaran) {
+                $akun = \App\Models\AkunKas::find($pembayaran->akun_kas_id);
+                if ($akun) {
+                    $akun->increment('saldo_saat_ini', $pembayaran->jumlah_bayar);
+
+                    // Record Mutasi Kas History (Refund)
+                    \App\Models\MutasiKas::create([
+                        'akun_kas_id' => $akun->id,
+                        'user_id' => auth()->id(),
+                        'tipe' => 'Masuk',
+                        'kategori' => 'Pembatalan',
+                        'jumlah' => $pembayaran->jumlah_bayar,
+                        'tanggal' => now(),
+                        'keterangan' => 'Refund Pembatalan Nota: ' . $pembelian->nomor_nota,
+                    ]);
+                }
+                // Option: Delete payment record or mark as void. Here we'll delete it for transparency in balance.
+                $pembayaran->delete();
+            }
+
+            $pembelian->status = 'Cancelled';
+            $pembelian->status_pembayaran = 'Void';
+            $pembelian->save();
+
+            // Manual Log
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'team_id' => auth()->user()->current_team_id,
+                'action' => 'CANCEL_PRO_INVOICE',
+                'description' => 'Membatalkan Nota PRO ' . $pembelian->nomor_nota . '. Stok dan Saldo Kas telah dikoreksi.',
+                'subject_type' => Pembelian::class,
+                'subject_id' => $pembelian->id
+            ]);
+        });
+
+        session()->flash('success', 'Transaksi PRO berhasil dibatalkan. Stok dan Saldo Kas telah dikoreksi.');
+        $this->selectedPembelianId = $id; // Refresh detail
+    }
+
+    public function markAsReceived($id)
+    {
+        // RBAC Check: Only Admin and Logistik can receive items
+        $user = auth()->user();
+        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'logistik')) {
+            session()->flash('error', 'Akses ditolak. Penerimaan barang hanya dapat dilakukan oleh Admin atau Staf Logistik / Gudang.');
+            return;
+        }
+
+        DB::transaction(function () use ($id) {
+            $pembelian = Pembelian::with(['details'])->findOrFail($id);
+
+            if ($pembelian->status !== 'PO') {
+                return;
+            }
+
+            foreach ($pembelian->details as $detail) {
+                if ($detail->status_item !== 'Received') {
+                    $sisa = $detail->qty_pesan - $detail->qty_terima;
+                    if ($sisa > 0) {
+                        // Use default warehouse if not specified
+                        $gudangId = $detail->gudang_id ?? Gudang::first()->id;
+                        $this->processReceiving($detail, $sisa, $gudangId);
+                    }
+                }
+            }
+
+            $pembelian->status = 'Received';
+            $pembelian->save();
+
+            // Manual Log
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'team_id' => auth()->user()->current_team_id,
+                'action' => 'RECEIVE_PO_ALL',
+                'description' => 'Memproses penerimaan massal untuk Nota PO ' . $pembelian->nomor_nota . '.',
+                'subject_type' => Pembelian::class,
+                'subject_id' => $pembelian->id
+            ]);
+        });
+
+        session()->flash('success', 'Barang PO berhasil diterima sepenuhnya!');
+        $this->selectedPembelianId = $id;
+    }
+
+    public function receiveItem($detailId)
+    {
+        // Team Permission Check
+        if (!auth()->user()->hasTeamPermission(auth()->user()->currentTeam, 'edit')) {
+            $this->dispatch('error-retur', ['message' => 'Anda tidak memiliki akses untuk memproses penerimaan.']);
+            return;
+        }
+
+        $qty = (int) ($this->qtyReceived[$detailId] ?? 0);
+        $gudangId = $this->gudangReceived[$detailId] ?? null;
+
+        if ($qty <= 0) {
+            $this->dispatch('error-retur', ['message' => 'Jumlah yang diterima harus lebih dari 0.']);
+            return;
+        }
+
+        if (!$gudangId) {
+            $this->dispatch('error-retur', ['message' => 'Pilih gudang tujuan terlebih dahulu.']);
+            return;
+        }
+
+        DB::transaction(function () use ($detailId, $qty, $gudangId) {
+            $detail = PembelianDetail::with(['pembelian', 'barang'])->findOrFail($detailId);
+            $sisa = $detail->qty_pesan - $detail->qty_terima;
+
+            if ($qty > $sisa) {
+                throw new \Exception("Jumlah diterima ($qty) melebihi sisa pesanan ($sisa).");
+            }
+
+            $this->processReceiving($detail, $qty, $gudangId);
+
+            // Update Overall Purchase Status
+            $pembelian = $detail->pembelian;
+            $allReceived = $pembelian->details()->where('status_item', '!=', 'Received')->count() === 0;
+
+            if ($allReceived) {
+                $pembelian->update(['status' => 'Received']);
+            } else {
+                $pembelian->update(['status' => 'PO']); // Remain in PO if partial
+            }
+
+            // Log
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'team_id' => auth()->user()->current_team_id,
+                'action' => 'RECEIVE_ITEM',
+                'description' => "Menerima $qty unit {$detail->barang->nama} ke gudang " . Gudang::find($gudangId)->nama . " (Nota: {$pembelian->nomor_nota})",
+                'subject_type' => PembelianDetail::class,
+                'subject_id' => $detail->id
+            ]);
+        });
+
+        $this->dispatch('success-retur', ['message' => 'Barang berhasil diterima dan stok telah diperbarui.']);
+        $this->qtyReceived[$detailId] = 0;
+    }
+
+    protected function processReceiving($detail, $qty, $gudangId)
+    {
+        // 1. Update Detail
+        $newQtyTerima = $detail->qty_terima + $qty;
+        $newStatus = ($newQtyTerima >= $detail->qty_pesan) ? 'Received' : 'Partial';
+
+        $detail->update([
+            'qty_terima' => $newQtyTerima,
+            'status_item' => $newStatus,
+            'gudang_id' => $gudangId // Update last allocated warehouse
+        ]);
+
+        // 2. Add to Stock
+        $stok = Stok::firstOrNew([
+            'barang_id' => $detail->barang_id,
+            'gudang_id' => $gudangId
+        ]);
+        $stok->jumlah = ($stok->exists ? $stok->jumlah : 0) + $qty;
+        $stok->save();
+
+        // 3. Update Harga Beli Terakhir
+        HargaBeli::create([
+            'barang_id' => $detail->barang_id,
+            'harga' => $detail->harga_beli,
+            'user_id' => Auth::id() ?? 1,
+        ]);
+    }
+
+    public function submitRetur($detailId)
+    {
+        // Team Permission Check
+        if (!auth()->user()->hasTeamPermission(auth()->user()->currentTeam, 'return')) {
+            $this->dispatch('error-retur', ['message' => 'Anda tidak memiliki akses untuk melakukan retur.']);
+            return;
+        }
+
+        $qtyToReturn = (int) ($this->qtyRetur[$detailId] ?? 0);
+
+        if ($qtyToReturn <= 0)
+            return;
+
+        DB::transaction(function () use ($detailId, $qtyToReturn) {
+            $detail = PembelianDetail::with('barang', 'pembelian.pembayarans')->findOrFail($detailId);
+            $pembelian = $detail->pembelian;
+
+            if ($pembelian->status === 'Cancelled')
+                return;
+
+            if ($qtyToReturn > $detail->qty_terima) {
+                $this->dispatch('error-retur', ['message' => 'Jumlah retur melebihi barang yang diterima.']);
+                return;
+            }
+
+            // 1. Financial Reversal (Refund)
+            // Jika status pembayaran bukan 'Unpaid', maka ada uang yang sudah keluar.
+            // Kita kembalikan uang senilai barang yang diretur ke akun kas terakhir yang digunakan.
+            if ($pembelian->status_pembayaran !== 'Unpaid') {
+                $refundValue = $qtyToReturn * $detail->harga_beli;
+                $pembayaranTerkait = $pembelian->pembayarans->last();
+
+                // Gunakan akun dari pembayaran terakhir, atau fallback ke default akun pembelian
+                $akunId = $pembayaranTerkait ? $pembayaranTerkait->akun_kas_id : $pembelian->akun_kas_id;
+
+                if ($akunId) {
+                    $akun = \App\Models\AkunKas::find($akunId);
+                    if ($akun) {
+                        $akun->increment('saldo_saat_ini', $refundValue);
+
+                        // Record Mutasi Kas History (Retur Refund)
+                        \App\Models\MutasiKas::create([
+                            'akun_kas_id' => $akun->id,
+                            'user_id' => auth()->id(),
+                            'tipe' => 'Masuk',
+                            'kategori' => 'Retur',
+                            'jumlah' => $refundValue,
+                            'tanggal' => now(),
+                            'keterangan' => 'Refund Retur: ' . $detail->barang->nama . ' (Nota: ' . $pembelian->nomor_nota . ')',
+                        ]);
+                    }
+                }
+            }
+
+            // 2. Physical Reversal (Stock)
+            if ($detail->gudang_id) {
+                $stok = Stok::where('barang_id', $detail->barang_id)
+                    ->where('gudang_id', $detail->gudang_id)
+                    ->first();
+
+                if ($stok) {
+                    $stok->jumlah -= $qtyToReturn;
+                    $stok->save();
+                }
+            }
+
+            // 3. Update Detail & Header
+            $detail->qty_terima -= $qtyToReturn;
+            $detail->qty_pesan -= $qtyToReturn;
+            $detail->save();
+
+            // Hitung ulang total harga nota
+            $newTotal = PembelianDetail::where('pembelian_id', $pembelian->id)
+                ->sum(DB::raw('qty_pesan * harga_beli'));
+
+            $pembelian->total_harga = $newTotal;
+            $pembelian->save();
+
+            // 4. Logging
+            \App\Models\ActivityLog::create([
+                'user_id' => auth()->id(),
+                'team_id' => auth()->user()->current_team_id,
+                'action' => 'ITEM_RETURN_PRO',
+                'description' => 'Retur PRO: ' . $qtyToReturn . ' unit ' . $detail->barang->nama . ' (Refund senilai Rp' . number_format($qtyToReturn * $detail->harga_beli, 0, ',', '.') . ' dikembalikan ke saldo).',
+                'subject_type' => PembelianDetail::class,
+                'subject_id' => $detail->id
+            ]);
+
+            $this->qtyRetur[$detailId] = 0;
+        });
+
+        $this->dispatch('success-retur', ['message' => 'Barang berhasil diretur. Stok dan Saldo Kas telah diperbarui secara otomatis.']);
     }
 
     public function updatedProvinceId($id)
@@ -595,23 +1313,62 @@ class Inventory extends Component
         $this->reset(['village_id']);
     }
 
+    public function updatedSubKategoriId($value)
+    {
+        if (!$value) {
+            $this->skuBarang = '';
+            return;
+        }
+
+        $sub = SubKategori::with('kategori')->find($value);
+        if (!$sub)
+            return;
+
+        $prefix = ($sub->kategori->kode ?? '') . '-' . ($sub->kode ?? '');
+
+        // Find the last number for this prefix
+        $lastBarang = Barang::where('sku', 'like', $prefix . '-%')
+            ->orderBy('sku', 'desc')
+            ->first();
+
+        $nextNumber = 1;
+        if ($lastBarang) {
+            $lastSku = $lastBarang->sku;
+            $parts = explode('-', $lastSku);
+            $lastNumber = (int) end($parts);
+            $nextNumber = $lastNumber + 1;
+        }
+
+        $this->skuBarang = $prefix . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+    }
+
     public function storeVendor()
     {
-        $this->validate([
-            'namaVendor' => 'required|min:3',
-            'kontakVendor' => 'nullable|min:8',
-            'province_id' => 'required',
-            'regency_id' => 'required',
-            'district_id' => 'required',
-            'village_id' => 'required',
-            'alamatVendor' => 'required|min:5',
-            'gambarVendor' => 'nullable|image|max:2048',
-        ]);
-
-        $gambarPath = null;
-        if ($this->gambarVendor) {
-            $gambarPath = $this->gambarVendor->store('vendors', 'public');
+        // RBAC Check: Member and Sales cannot create/edit Vendors
+        $user = auth()->user();
+        if ($user->hasTeamRole($user->currentTeam, 'member') || $user->hasTeamRole($user->currentTeam, 'sales')) {
+            session()->flash('error', 'Akses ditolak. Anda tidak memiliki hak untuk menambah atau mengubah data vendor.');
+            return;
         }
+
+        $rules = [
+            'namaVendor' => 'required|min:3',
+            'kontakVendor' => 'nullable',
+            'province_id' => 'nullable',
+            'regency_id' => 'nullable',
+            'district_id' => 'nullable',
+            'village_id' => 'nullable',
+            'alamatVendor' => 'nullable|min:3',
+            'gambarVendor' => 'nullable',
+        ];
+
+        if ($this->gambarVendor && !is_string($this->gambarVendor)) {
+            $rules['gambarVendor'] = 'image|max:2048';
+        }
+
+        $this->validate($rules);
+
+        $gambarPath = $this->saveImage($this->gambarVendor, 'vendors');
 
         $vendor = Vendor::create([
             'nama' => $this->namaVendor,
@@ -625,28 +1382,42 @@ class Inventory extends Component
             'gambar' => $gambarPath,
         ]);
 
+        // Save this BEFORE reset() destroys it
+        $wasInPurchaseModal = $this->showPurchaseModal;
+
         $this->reset(['namaVendor', 'kontakVendor', 'province_id', 'regency_id', 'district_id', 'village_id', 'alamatVendor', 'tagVendor', 'gambarVendor', 'showModalVendor', 'regencies', 'districts', 'villages']);
 
-        // If opened from purchase modal, auto select it
-        if ($this->showPurchaseModal) {
+        // If opened from purchase modal, auto select newly created vendor
+        if ($wasInPurchaseModal) {
+            $this->showPurchaseModal = true;
             $this->selectVendor($vendor->id, $vendor->nama);
         }
 
+        session()->flash('success', 'Vendor ' . $vendor->nama . ' berhasil ditambahkan!');
         $this->dispatch('close-modal-vendor');
-        session()->flash('success', 'Vendor baru berhasil ditambahkan!');
     }
 
     public function storeGudang()
     {
-        $this->validate([
-            'namaGudang' => 'required|min:2|unique:gudangs,nama',
-            'gambarGudang' => 'nullable|image|max:2048',
-        ]);
-
-        $gambarPath = null;
-        if ($this->gambarGudang) {
-            $gambarPath = $this->gambarGudang->store('gudangs', 'public');
+        // RBAC Check: Only Admin can create/edit Gudangs
+        $user = auth()->user();
+        if (!$user->hasTeamRole($user->currentTeam, 'admin')) {
+            session()->flash('error', 'Akses ditolak. Hanya Administrator yang dapat mengelola daftar Gudang.');
+            return;
         }
+
+        $rules = [
+            'namaGudang' => 'required|min:2|unique:gudangs,nama',
+            'gambarGudang' => 'nullable',
+        ];
+
+        if ($this->gambarGudang && !is_string($this->gambarGudang)) {
+            $rules['gambarGudang'] = 'image|max:2048';
+        }
+
+        $this->validate($rules);
+
+        $gambarPath = $this->saveImage($this->gambarGudang, 'gudangs');
 
         Gudang::create([
             'nama' => $this->namaGudang,
@@ -658,5 +1429,86 @@ class Inventory extends Component
         $this->reset(['namaGudang', 'lokasiGudang', 'deskripsiGudang', 'gambarGudang', 'showModalGudang']);
         $this->dispatch('close-modal-gudang');
         session()->flash('success', 'Gudang baru berhasil ditambahkan!');
+    }
+
+    public function openModalKas($akunId)
+    {
+        $this->selectedAkunKasId = $akunId;
+        $this->tanggalKas = date('Y-m-d');
+        $this->reset(['jumlahKas', 'kategoriKas', 'keteranganKas']);
+        $this->tipeKas = 'Masuk';
+        $this->showModalKas = true;
+    }
+
+    public function storeMutasiKas()
+    {
+        // RBAC Check: Only Admin and Finance can process Mutasi Kas
+        $user = auth()->user();
+        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'finance')) {
+            session()->flash('error', 'Akses ditolak. Pengelola Kas hanya diperuntukkan bagi Admin dan Staff Keuangan.');
+            return;
+        }
+
+        $this->validate([
+            'selectedAkunKasId' => 'required|exists:akun_kas,id',
+            'tipeKas' => 'required|in:Masuk,Keluar',
+            'jumlahKas' => 'required|numeric|min:0',
+            'kategoriKas' => 'required|string|min:3',
+            'tanggalKas' => 'required|date',
+            'keteranganKas' => 'nullable|string',
+        ]);
+
+        DB::transaction(function () {
+            $akun = \App\Models\AkunKas::findOrFail($this->selectedAkunKasId);
+
+            \App\Models\MutasiKas::create([
+                'akun_kas_id' => $this->selectedAkunKasId,
+                'user_id' => auth()->id(),
+                'tipe' => $this->tipeKas,
+                'kategori' => $this->kategoriKas,
+                'jumlah' => $this->jumlahKas,
+                'tanggal' => $this->tanggalKas,
+                'keterangan' => $this->keteranganKas,
+            ]);
+
+            if ($this->tipeKas === 'Masuk') {
+                $akun->increment('saldo_saat_ini', $this->jumlahKas);
+            } else {
+                $akun->decrement('saldo_saat_ini', $this->jumlahKas);
+            }
+        });
+
+        session()->flash('success', 'Mutasi Kas berhasil dicatat!');
+        // Keep selectedAkunKasId to refresh the list in modal
+        $this->reset(['jumlahKas', 'kategoriKas', 'keteranganKas']);
+    }
+
+    public function storeAkunKas()
+    {
+        // RBAC Check: Only Admin and Finance can manage Akun Kas
+        $user = auth()->user();
+        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'finance')) {
+            session()->flash('error', 'Akses ditolak. Fitur Manajemen Kas hanya dapat diakses oleh Admin dan Keuangan.');
+            return;
+        }
+
+        $this->validate([
+            'namaAkunKas' => 'required|min:3',
+            'kodeAkunKas' => 'required|unique:akun_kas,kode',
+            'saldoAwal' => 'required|numeric|min:0',
+        ]);
+
+        \App\Models\AkunKas::create([
+            'nama' => $this->namaAkunKas,
+            'kode' => $this->kodeAkunKas,
+            'saldo_awal' => $this->saldoAwal,
+            'saldo_saat_ini' => $this->saldoAwal,
+            'user_id' => $this->pjUserKasId ?: auth()->id(),
+            'team_id' => auth()->user()->current_team_id,
+        ]);
+
+        $this->reset(['namaAkunKas', 'kodeAkunKas', 'saldoAwal', 'pjUserKasId']);
+        $this->dispatch('close-modal-akun-kas');
+        session()->flash('success', 'Akun Kas baru berhasil ditambahkan!');
     }
 }

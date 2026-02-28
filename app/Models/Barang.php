@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 
 class Barang extends Model
 {
+    use LogsActivity;
     protected $guarded = ['id'];
 
     public function kategori()
@@ -41,5 +43,15 @@ class Barang extends Model
     public function hargaJualTerakhir()
     {
         return $this->hasOne(HargaJual::class)->latestOfMany();
+    }
+
+    public function stoks()
+    {
+        return $this->hasMany(Stok::class);
+    }
+
+    public function getTotalStokAttribute()
+    {
+        return $this->stoks->sum('jumlah');
     }
 }

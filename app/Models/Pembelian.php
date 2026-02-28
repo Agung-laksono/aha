@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Model;
 
 class Pembelian extends Model
 {
+    use LogsActivity;
     protected $guarded = ['id'];
 
     public function vendor()
@@ -16,5 +18,25 @@ class Pembelian extends Model
     public function details()
     {
         return $this->hasMany(PembelianDetail::class);
+    }
+
+    public function pembayarans()
+    {
+        return $this->hasMany(PembayaranPembelian::class);
+    }
+
+    public function dokumens()
+    {
+        return $this->hasMany(DokumenPembelian::class);
+    }
+
+    public function getTerbayarAttribute()
+    {
+        return $this->pembayarans()->sum('jumlah_bayar');
+    }
+
+    public function getSisaTagihanAttribute()
+    {
+        return $this->total_harga + $this->biaya_ongkir + $this->biaya_lain - $this->terbayar;
     }
 }

@@ -37,8 +37,8 @@
                         <div>
                             <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SKU</label>
                             <input type="text" wire:model.live.debounce.500ms="skuBarang"
-                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
-                                required>
+                                class="bg-gray-100 border border-gray-300 text-gray-500 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-gray-400 cursor-not-allowed"
+                                placeholder="Otomatis..." disabled>
                             @error('skuBarang') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                         </div>
                     </div>
@@ -70,7 +70,7 @@
                             <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Sub
                                 Kategori</label>
                             <div class="flex gap-2">
-                                <select wire:model="sub_kategori_id"
+                                <select wire:model.live="sub_kategori_id"
                                     class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
                                     required {{ !$kategori_id_barang ? 'disabled' : '' }}>
                                     <option value="">Pilih Sub Kategori</option>
@@ -156,8 +156,20 @@
                     </div>
 
                     <!-- Gambar -->
-                    <div class="col-span-full">
-                        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Media Barang</label>
+                    <div class="col-span-full" x-data="{ isCompressing: false }" @compression-start.window="isCompressing = true" @compression-end.window="isCompressing = false">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-sm font-medium text-gray-900 dark:text-white">Media Barang</label>
+                            <div class="flex items-center">
+                                <label class="inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="auto-compress-barang" class="sr-only peer" checked>
+                                    <div
+                                        class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600">
+                                    </div>
+                                    <span
+                                        class="ms-3 text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Auto-Compress</span>
+                                </label>
+                            </div>
+                        </div>
 
                         <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
                             <!-- Tombol Tambah Gambar (Card Style) -->
@@ -177,8 +189,11 @@
                                             class="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-tighter text-center px-1">
                                             Tambah Foto</p>
                                     </div>
-                                    <input id="uploadGambars" type="file" wire:model="uploadGambars" multiple
-                                        class="hidden" />
+                                    <input id="uploadGambars" type="file" multiple class="hidden" x-on:change="if(document.getElementById('auto-compress-barang').checked) {
+                                            handleAutoCompress($event.target, 'uploadGambars', $wire)
+                                        } else {
+                                            @this.uploadMultiple('uploadGambars', $event.target.files)
+                                        }" />
                                 </label>
                             </div>
 
@@ -205,7 +220,7 @@
 
                                     <!-- Tombol Crop (Top Left) -->
                                     <button type="button"
-                                        onclick="openCropModal({{ $index }}, '{{ is_string($gambar) ? $gambar : $gambar->temporaryUrl() }}')"
+                                        x-on:click="openCropModal({{ $index }}, $el.closest('.group').querySelector('img').src, 'gambars', $wire)"
                                         class="absolute top-1 left-1 bg-blue-500 text-white rounded-lg w-7 h-7 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform scale-75 group-hover:scale-100 shadow-lg hover:bg-blue-600 z-10">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -226,13 +241,19 @@
                             @endforeach
                         </div>
 
-                        <div wire:loading wire:target="uploadGambars"
-                            class="mt-2 text-blue-500 text-xs text-center animate-pulse">
-                            <span class="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1"></span> Mengunggah foto...
+                        <div x-show="isCompressing" style="display: none;"
+                            class="mt-2 text-indigo-500 text-xs text-center animate-pulse font-medium">
+                            <span class="inline-block w-2 h-2 bg-indigo-500 rounded-full mr-1"></span> Mengkompresi gambar...
+                        </div>
+
+                        <div wire:loading wire:target="uploadGambars, gambars"
+                            class="mt-2 text-blue-500 text-xs text-center animate-pulse font-medium">
+                            <span class="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1"></span> Mengunggah foto ke server...
                         </div>
 
                         @error('uploadGambars.*') <p class="mt-2 text-xs text-red-600 font-medium italic">⚠️
-                        {{ $message }}</p> @enderror
+                            {{ $message }}
+                        </p> @enderror
                         @error('gambars') <p class="mt-2 text-xs text-red-600 font-medium italic">⚠️ {{ $message }}</p>
                         @enderror
                         @error('gambars.*') <p class="mt-2 text-xs text-red-600 font-medium italic">⚠️ {{ $message }}
@@ -263,90 +284,3 @@
         </div>
     </div>
 </div>
-
-<!-- Modal Crop Image -->
-<div id="modal-crop" tabindex="-1" aria-hidden="true"
-    class="bg-black bg-opacity-90 hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-[70] justify-center items-center w-full md:inset-0 h-full">
-    <div class="relative p-4 w-full max-w-2xl max-h-full">
-        <div class="relative bg-white rounded-xl shadow-2xl dark:bg-gray-800">
-            <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Potong Gambar</h3>
-                <button type="button" onclick="closeCropModal()"
-                    class="text-gray-400 hover:text-gray-900 dark:hover:text-white">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                        </path>
-                    </svg>
-                </button>
-            </div>
-            <div class="p-4">
-                <div class="max-h-[60vh] overflow-hidden rounded-lg bg-gray-100 flex justify-center items-center">
-                    <img id="image-to-crop" src="" class="max-w-full block">
-                </div>
-            </div>
-            <div class="flex items-center justify-end p-4 border-t dark:border-gray-700 gap-3">
-                <button type="button" onclick="closeCropModal()"
-                    class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Batal</button>
-                <button type="button" onclick="cropAndSave()"
-                    class="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-lg">Terapkan
-                    Potongan</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    let cropper = null;
-    let currentImageIndex = null;
-
-    function openCropModal(index, imageUrl) {
-        currentImageIndex = index;
-        const modal = document.getElementById('modal-crop');
-        const image = document.getElementById('image-to-crop');
-
-        image.src = imageUrl;
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-
-        if (cropper) {
-            cropper.destroy();
-        }
-
-        setTimeout(() => {
-            cropper = new Cropper(image, {
-                aspectRatio: 1,
-                viewMode: 1,
-                autoCropArea: 1,
-                dragMode: 'move',
-                responsive: true,
-            });
-        }, 100);
-    }
-
-    function closeCropModal() {
-        const modal = document.getElementById('modal-crop');
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        if (cropper) {
-            cropper.destroy();
-            cropper = null;
-        }
-    }
-
-    function cropAndSave() {
-        if (!cropper) return;
-
-        const canvas = cropper.getCroppedCanvas({
-            width: 800,
-            height: 800,
-        });
-
-        const base64Data = canvas.toDataURL('image/png');
-
-        // Kirim ke Livewire menggunakan window.Livewire.find()
-        const component = window.Livewire.find(document.getElementById('modal-barang').closest('[wire\\:id]').getAttribute('wire:id'));
-        component.call('updateCroppedImage', currentImageIndex, base64Data).then(() => {
-            closeCropModal();
-        });
-    }
-</script>

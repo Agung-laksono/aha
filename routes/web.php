@@ -18,4 +18,21 @@ Route::middleware([
         return view('inventory');
     })->name('inventory');
 
+    Route::get('/print-po/{id}', function ($id) {
+        $pembelian = \App\Models\Pembelian::with(['vendor', 'details.barang'])->findOrFail($id);
+        return view('print-po', compact('pembelian'));
+    })->name('print-po');
+
+    Route::get('/activity-log', function () {
+        return view('activity-log-page');
+    })->name('activity-log');
+
+    // Admin Only User Management
+    Route::get('/user-management', \App\Livewire\UserManagement::class)
+        ->name('user-management')
+        ->middleware([
+            'auth:sanctum',
+            config('jetstream.auth_session'),
+            'verified',
+        ]);
 });
