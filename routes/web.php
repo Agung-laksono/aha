@@ -27,6 +27,10 @@ Route::middleware([
         return view('activity-log-page');
     })->name('activity-log');
 
+    Route::get('/panduan', function () {
+        return view('panduan');
+    })->name('panduan');
+
     // Admin Only User Management
     Route::get('/user-management', \App\Livewire\UserManagement::class)
         ->name('user-management')

@@ -12,37 +12,33 @@
                     <div class="ms-3 relative">
                         <x-dark-mode-toggle />
                     </div>
+                    @include('livewire.Inventoryfolder.tombol-full-screen')
                 </div>
 
                 <!-- Navigation Links -->
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                <div class="hidden space-x-6 lg:-my-px lg:ms-8 lg:flex">
                     <x-nav-link href="{{ route('dashboard') }}" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
-                </div>
-                <!-- Navigation Links -->
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                     <x-nav-link href="{{ route('inventory') }}" :active="request()->routeIs('inventory')">
                         {{ __('Inventory') }}
                     </x-nav-link>
-                </div>
-                <!-- Navigation Links -->
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                     <x-nav-link href="{{ route('activity-log') }}" :active="request()->routeIs('activity-log')">
                         {{ __('Activity Log') }}
                     </x-nav-link>
-                </div>
-                <!-- Admin Only Links -->
-                @if (Auth::user()->currentTeam && Auth::user()->hasTeamRole(Auth::user()->currentTeam, 'admin'))
-                    <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                    <x-nav-link href="{{ route('panduan') }}" :active="request()->routeIs('panduan')">
+                        {{ __('Panduan') }}
+                    </x-nav-link>
+                    <!-- Admin Only Links -->
+                    @if (Auth::user()->currentTeam && Auth::user()->hasTeamRole(Auth::user()->currentTeam, 'admin'))
                         <x-nav-link href="{{ route('user-management') }}" :active="request()->routeIs('user-management')">
                             {{ __('User Management') }}
                         </x-nav-link>
-                    </div>
-                @endif
+                    @endif
+                </div>
             </div>
 
-            <div class="hidden sm:flex sm:items-center sm:ms-6">
+            <div class="hidden lg:flex lg:items-center lg:ms-6">
 
 
                 <!-- Teams Dropdown -->
@@ -158,7 +154,7 @@
             </div>
 
             <!-- Hamburger -->
-            <div class="-me-2 flex items-center sm:hidden">
+            <div class="-me-2 flex items-center lg:hidden">
                 <button @click="open = ! open"
                     class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-900 focus:text-gray-500 dark:focus:text-gray-400 transition duration-150 ease-in-out">
                     <svg class="size-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
@@ -174,7 +170,7 @@
     </div>
 
     <!-- Responsive Navigation Menu -->
-    <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
+    <div :class="{'block': open, 'hidden': ! open}" class="hidden lg:hidden">
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link href="{{ route('dashboard') }}" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
@@ -188,6 +184,11 @@
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link href="{{ route('activity-log') }}" :active="request()->routeIs('activity-log')">
                 {{ __('Activity Log') }}
+            </x-responsive-nav-link>
+        </div>
+        <div class="pt-2 pb-3 space-y-1">
+            <x-responsive-nav-link href="{{ route('panduan') }}" :active="request()->routeIs('panduan')">
+                {{ __('Panduan') }}
             </x-responsive-nav-link>
         </div>
         @if (Auth::user()->currentTeam && Auth::user()->hasTeamRole(Auth::user()->currentTeam, 'admin'))

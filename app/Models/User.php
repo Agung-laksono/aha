@@ -66,4 +66,22 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    /**
+     * Gudang yang dapat diakses oleh user ini (Many-to-Many).
+     * Digunakan untuk staf logistik yang ditugaskan ke gudang tertentu.
+     */
+    public function gudangs()
+    {
+        return $this->belongsToMany(Gudang::class, 'gudang_user')->withTimestamps();
+    }
+
+    /**
+     * Mengembalikan array ID gudang yang boleh diakses oleh user ini.
+     */
+    public function accessibleGudangIds(): array
+    {
+        return $this->gudangs()->pluck('gudangs.id')->toArray();
+    }
 }
+

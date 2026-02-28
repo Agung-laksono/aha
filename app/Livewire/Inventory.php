@@ -67,6 +67,7 @@ class Inventory extends Component
 
     // Purchase Properties
     public $showPurchaseModal = false;
+    public $showConfirmPurchaseModal = false;
     public $purchaseCart = []; // [{barang_id, nama, sku, qty, harga, gudang_id, status}]
     public $selectedVendor = null; // {id, nama}
     public $nomorNota = '';
@@ -141,6 +142,15 @@ class Inventory extends Component
             ->toArray();
     }
 
+    #[Computed]
+    public function pendingReturnsCount()
+    {
+        if (auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin') || auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'editor')) {
+            return \App\Models\PembelianDetail::where('qty_retur_request', '>', 0)->count();
+        }
+        return 0;
+    }
+
     // Region Lists
     public $provinces = [];
     public $regencies = [];
@@ -210,10 +220,15 @@ class Inventory extends Component
     #[Computed]
     public function userAkunKas()
     {
-        return \App\Models\AkunKas::with('user')
-            ->where('user_id', auth()->id())
-            ->orWhere('team_id', auth()->user()->current_team_id)
-            ->get();
+        $user = auth()->user();
+        $query = \App\Models\AkunKas::with('user')
+            ->where('team_id', $user->current_team_id);
+
+        if (!$user->hasTeamPermission($user->currentTeam, 'manage_kas')) {
+            $query->where('user_id', $user->id);
+        }
+
+        return $query->get();
     }
 
     #[Computed]
@@ -449,6 +464,9 @@ class Inventory extends Component
             case 'za':
                 $query->orderBy('nama', 'desc');
                 break;
+            case 'stock_high':
+                $query->withSum('stoks', 'jumlah')->orderByRaw('COALESCE(stoks_sum_jumlah, 0) desc');
+                break;
             case 'price_high':
                 $query->orderBy(
                     HargaJual::select('harga')
@@ -531,10 +549,16 @@ class Inventory extends Component
 
     public function render()
     {
-        $this->provinces = $this->fetchWilayah('https://wilayah.id/api/provinces.json');
+        $user = auth()->user();
+        $gudangsFilter = Gudang::all();
+
+        if ($user && !$user->hasTeamRole($user->currentTeam, 'admin')) {
+            $allowedIds = $user->accessibleGudangIds();
+            $gudangsFilter = Gudang::whereIn('id', $allowedIds)->get();
+        }
 
         return view('livewire.inventory', [
-            'gudangs' => Gudang::all(),
+            'gudangs' => $gudangsFilter,
             'kategoris' => Kategori::all(),
             'subKategoris' => SubKategori::all(),
             'subKategorisFiltered' => $this->kategori_id_barang
@@ -561,6 +585,13 @@ class Inventory extends Component
 
     public function storeKategori()
     {
+        // RBAC Check
+        $user = auth()->user();
+        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'editor')) {
+            session()->flash('error', 'Akses ditolak. Hanya Admin atau Purchasing yang dapat mengelola kategori.');
+            return;
+        }
+
         $this->validate([
             'namaKategori' => 'required|unique:kategoris,nama',
             'kodeKategori' => 'required|unique:kategoris,kode',
@@ -576,9 +607,17 @@ class Inventory extends Component
         session()->flash('success', 'Kategori "' . $this->namaKategori . '" berhasil disimpan!');
 
         $this->reset('namaKategori', 'kodeKategori', 'deskripsiKategori');
+        $this->dispatch('close-modal', modalId: 'modal-kategori');
     }
     public function storeSubKategori()
     {
+        // RBAC Check
+        $user = auth()->user();
+        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'editor')) {
+            session()->flash('error', 'Akses ditolak. Hanya Admin atau Purchasing yang dapat mengelola sub-kategori.');
+            return;
+        }
+
         $this->validate([
             'kategori_id' => 'required',
             'namaSubKategori' => 'required|unique:sub_kategoris,nama',
@@ -597,10 +636,18 @@ class Inventory extends Component
         session()->flash('success', 'Sub Kategori "' . $this->namaSubKategori . '" berhasil disimpan!');
 
         $this->reset('namaSubKategori', 'kodeSubKategori', 'deskripsiSubKategori', 'kategori_id');
+        $this->dispatch('close-modal', modalId: 'modal-subKategori');
     }
 
     public function storeSatuan()
     {
+        // RBAC Check
+        $user = auth()->user();
+        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'editor')) {
+            session()->flash('error', 'Akses ditolak. Hanya Admin atau Purchasing yang dapat mengelola satuan.');
+            return;
+        }
+
         $this->validate([
             'namaSatuan' => 'required|unique:satuans,nama',
             'kodeSatuan' => 'required|unique:satuans,kode',
@@ -615,14 +662,15 @@ class Inventory extends Component
         session()->flash('success', 'Satuan "' . $this->namaSatuan . '" berhasil disimpan!');
 
         $this->reset('namaSatuan', 'kodeSatuan', 'deskripsiSatuan');
+        $this->dispatch('close-modal', modalId: 'modal-satuan');
     }
 
 
     public function storeBarang()
     {
-        // RBAC Check: Member and Sales cannot create/edit Barang
+        // RBAC Check: Only Admin and Purchasing (Editor) can create/edit Barang
         $user = auth()->user();
-        if ($user->hasTeamRole($user->currentTeam, 'member') || $user->hasTeamRole($user->currentTeam, 'sales')) {
+        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'editor')) {
             session()->flash('error', 'Akses ditolak. Anda tidak memiliki hak untuk menambah atau mengubah data barang.');
             return;
         }
@@ -705,13 +753,20 @@ class Inventory extends Component
             'kategori_id_barang'
         ]);
 
-        $this->dispatch('close-modal');
+        $this->dispatch('close-modal', modalId: 'modal-barang');
     }
 
     // --- PURCHASE METHODS ---
 
     public function openPurchaseModal()
     {
+        // RBAC Check
+        $user = auth()->user();
+        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'editor')) {
+            session()->flash('error', 'Akses ditolak. Pembelian hanya dapat dilakukan oleh Admin atau Purchasing.');
+            return;
+        }
+
         // Mutually exclusive with history
         $this->showHistoryModal = false;
 
@@ -809,13 +864,17 @@ class Inventory extends Component
                 return;
         }
 
+        $img = $barang->gambarBarangs->where('gambar_utama', true)->first() ?? $barang->gambarBarangs->first();
+        $imgPath = $img ? (str_starts_with($img->path, 'http') ? $img->path : asset('storage/' . $img->path)) : 'https://ui-avatars.com/api/?name=' . urlencode($barang->nama) . '&color=random';
+
         $this->purchaseCart[] = [
             'barang_id' => $barang->id,
             'nama' => $barang->nama,
             'sku' => $barang->sku,
             'qty' => 1,
+            'gambar' => $imgPath,
             'harga' => $barang->hargaBeliTerakhir->harga ?? 0,
-            'gudang_id' => Gudang::first()->id ?? null,
+            'gudang_id' => '',
             'status' => 'Received', // Default to received for simplicity, user can change
             'catatan' => '',
             'catatan_internal' => '',
@@ -831,13 +890,21 @@ class Inventory extends Component
         $this->purchaseCart = array_values($this->purchaseCart);
     }
 
-    public function savePurchase()
+    public function confirmPurchase()
     {
+        // RBAC Check
+        $user = auth()->user();
+        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'editor')) {
+            session()->flash('error', 'Akses ditolak. Anda tidak memiliki hak untuk merekam transaksi pembelian.');
+            return;
+        }
+
         $this->validate([
             'selectedVendor' => 'required',
             'nomorNota' => 'required|unique:pembelians,nomor_nota',
             'tanggalPembelian' => 'required|date',
             'purchaseCart' => 'required|array|min:1',
+            'purchaseCart.*.gudang_id' => 'required_if:purchaseCart.*.status,Received',
             'metodePembayaran' => 'required',
             'akunKasId' => [
                 'required_if:metodePembayaran,Cash',
@@ -868,6 +935,62 @@ class Inventory extends Component
             'nomorNota.unique' => 'Nomor nota sudah terdaftar di sistem.',
             'tanggalPembelian.required' => 'Tanggal transaksi wajib diisi.',
             'purchaseCart.min' => 'Keranjang masih kosong, tambahkan minimal 1 barang.',
+            'purchaseCart.*.gudang_id.required_if' => 'Pilih Tujuan Gudang untuk barang Diterima.',
+            'metodePembayaran.required' => 'Pilih metode pembayaran.',
+            'akunKasId.required_if' => 'Pilih Akun Kas untuk pembayaran tunai.',
+            'jatuhTempo.required_if' => 'Tanggal jatuh tempo wajib diisi untuk transaksi kredit.',
+            'compressedInvoice.required' => 'Bukti nota/invoice wajib diunggah.',
+        ]);
+
+        $this->showConfirmPurchaseModal = true;
+    }
+
+    public function savePurchase()
+    {
+        // RBAC Check: Only Admin and Purchasing (Editor) can save Purchases
+        $user = auth()->user();
+        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'editor')) {
+            session()->flash('error', 'Akses ditolak. Anda tidak memiliki hak untuk merekam transaksi pembelian.');
+            return;
+        }
+
+        $this->validate([
+            'selectedVendor' => 'required',
+            'nomorNota' => 'required|unique:pembelians,nomor_nota',
+            'tanggalPembelian' => 'required|date',
+            'purchaseCart' => 'required|array|min:1',
+            'purchaseCart.*.gudang_id' => 'required_if:purchaseCart.*.status,Received',
+            'metodePembayaran' => 'required',
+            'akunKasId' => [
+                'required_if:metodePembayaran,Cash',
+                function ($attribute, $value, $fail) {
+                    if ($this->metodePembayaran === 'Kredit' && $this->jumlahDP > 0 && empty($value)) {
+                        $fail('Sedang ada DP, harap pilih Akun Kas asal dana.');
+                    }
+                }
+            ],
+            'jatuhTempo' => 'required_if:metodePembayaran,Kredit',
+            'compressedInvoice' => [
+                'required',
+                function ($attribute, $value, $fail) {
+                    if (!is_string($value)) {
+                        $validator = \Illuminate\Support\Facades\Validator::make(
+                            [$attribute => $value],
+                            [$attribute => 'image|max:2048']
+                        );
+                        if ($validator->fails()) {
+                            $fail($validator->errors()->first($attribute));
+                        }
+                    }
+                }
+            ],
+        ], [
+            'selectedVendor.required' => 'Pilih vendor terlebih dahulu.',
+            'nomorNota.required' => 'Nomor nota wajib diisi.',
+            'nomorNota.unique' => 'Nomor nota sudah terdaftar di sistem.',
+            'tanggalPembelian.required' => 'Tanggal transaksi wajib diisi.',
+            'purchaseCart.min' => 'Keranjang masih kosong, tambahkan minimal 1 barang.',
+            'purchaseCart.*.gudang_id.required_if' => 'Pilih Tujuan Gudang untuk barang Diterima.',
             'metodePembayaran.required' => 'Pilih metode pembayaran.',
             'akunKasId.required_if' => 'Pilih Akun Kas untuk pembayaran tunai.',
             'jatuhTempo.required_if' => 'Tanggal jatuh tempo wajib diisi untuk transaksi kredit.',
@@ -986,7 +1109,9 @@ class Inventory extends Component
         });
 
         session()->flash('success', 'Transaksi Pro ' . $this->nomorNota . ' berhasil disimpan!');
+        $this->dispatch('purchase-saved'); // Emit event for frontend to close modals gracefully
         $this->showPurchaseModal = false;
+        $this->showConfirmPurchaseModal = false;
         $this->reset(['purchaseCart', 'selectedVendor', 'nomorNota', 'ongkir', 'biayaLain', 'metodePembayaran', 'jatuhTempo', 'akunKasId', 'jumlahDP', 'compressedInvoice']);
     }
 
@@ -1107,9 +1232,10 @@ class Inventory extends Component
 
     public function receiveItem($detailId)
     {
-        // Team Permission Check
-        if (!auth()->user()->hasTeamPermission(auth()->user()->currentTeam, 'edit')) {
-            $this->dispatch('error-retur', ['message' => 'Anda tidak memiliki akses untuk memproses penerimaan.']);
+        // RBAC Check: Only Admin and Logistik can receive items
+        $user = auth()->user();
+        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'logistik')) {
+            session()->flash('error', 'Akses ditolak. Penerimaan barang hanya dapat dilakukan oleh Admin atau Staf Logistik.');
             return;
         }
 
@@ -1124,6 +1250,15 @@ class Inventory extends Component
         if (!$gudangId) {
             $this->dispatch('error-retur', ['message' => 'Pilih gudang tujuan terlebih dahulu.']);
             return;
+        }
+
+        // Per-Gudang Access Check: logistik users can only receive to their assigned warehouses
+        if ($user->hasTeamRole($user->currentTeam, 'logistik')) {
+            $allowedGudangIds = $user->accessibleGudangIds();
+            if (!in_array((int) $gudangId, $allowedGudangIds)) {
+                $this->dispatch('error-retur', ['message' => 'Akses ditolak. Anda tidak memiliki akses ke gudang yang dipilih.']);
+                return;
+            }
         }
 
         DB::transaction(function () use ($detailId, $qty, $gudangId) {
@@ -1189,11 +1324,11 @@ class Inventory extends Component
         ]);
     }
 
-    public function submitRetur($detailId)
+    public function askRetur($detailId)
     {
-        // Team Permission Check
-        if (!auth()->user()->hasTeamPermission(auth()->user()->currentTeam, 'return')) {
-            $this->dispatch('error-retur', ['message' => 'Anda tidak memiliki akses untuk melakukan retur.']);
+        // Check if user has logistik/admin roles to request
+        if (!auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'logistik') && !auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin')) {
+            $this->dispatch('error-retur', ['message' => 'Anda tidak memiliki akses untuk mengajukan retur.']);
             return;
         }
 
@@ -1202,8 +1337,51 @@ class Inventory extends Component
         if ($qtyToReturn <= 0)
             return;
 
-        DB::transaction(function () use ($detailId, $qtyToReturn) {
-            $detail = PembelianDetail::with('barang', 'pembelian.pembayarans')->findOrFail($detailId);
+        $detail = PembelianDetail::findOrFail($detailId);
+
+        // Cannot request more than what was received - already requested
+        if ($qtyToReturn > ($detail->qty_terima - $detail->qty_retur_request)) {
+            $this->dispatch('error-retur', ['message' => 'Jumlah pengajuan melebihi sisa barang yang bisa diretur.']);
+            return;
+        }
+
+        $detail->qty_retur_request += $qtyToReturn;
+        $detail->save();
+
+        \App\Models\ActivityLog::create([
+            'user_id' => auth()->id(),
+            'team_id' => auth()->user()->current_team_id,
+            'action' => 'ITEM_RETURN_REQUEST',
+            'description' => 'Staf Gudang mengajukan retur sebanyak ' . $qtyToReturn . ' unit untuk ' . $detail->barang->nama . '.',
+            'subject_type' => PembelianDetail::class,
+            'subject_id' => $detail->id
+        ]);
+
+        $this->qtyRetur[$detailId] = 0;
+        $this->dispatch('success-retur', ['message' => 'Pengajuan retur berhasil dikirim ke Admin.']);
+    }
+
+    public function submitRetur($detailId)
+    {
+        // Team Permission Check - ONLY ADMIN
+        if (!auth()->user()->hasTeamPermission(auth()->user()->currentTeam, 'return')) {
+            $this->dispatch('error-retur', ['message' => 'Hanya Admin yang dapat mengonfirmasi retur.']);
+            return;
+        }
+
+        $qtyToReturnFromInput = (int) ($this->qtyRetur[$detailId] ?? 0);
+        $detail = PembelianDetail::with('barang', 'pembelian.pembayarans')->findOrFail($detailId);
+
+        // If Admin is approving a pending request, use the requested amount if input is 0. 
+        // Otherwise, use input (direct admin return or override).
+        $qtyToReturn = $qtyToReturnFromInput > 0 ? $qtyToReturnFromInput : $detail->qty_retur_request;
+
+        if ($qtyToReturn <= 0) {
+            $this->dispatch('error-retur', ['message' => 'Tidak ada pengajuan retur untuk diproses.']);
+            return;
+        }
+
+        DB::transaction(function () use ($detail, $qtyToReturn, $detailId) {
             $pembelian = $detail->pembelian;
 
             if ($pembelian->status === 'Cancelled')
@@ -1215,13 +1393,9 @@ class Inventory extends Component
             }
 
             // 1. Financial Reversal (Refund)
-            // Jika status pembayaran bukan 'Unpaid', maka ada uang yang sudah keluar.
-            // Kita kembalikan uang senilai barang yang diretur ke akun kas terakhir yang digunakan.
             if ($pembelian->status_pembayaran !== 'Unpaid') {
                 $refundValue = $qtyToReturn * $detail->harga_beli;
                 $pembayaranTerkait = $pembelian->pembayarans->last();
-
-                // Gunakan akun dari pembayaran terakhir, atau fallback ke default akun pembelian
                 $akunId = $pembayaranTerkait ? $pembayaranTerkait->akun_kas_id : $pembelian->akun_kas_id;
 
                 if ($akunId) {
@@ -1229,7 +1403,6 @@ class Inventory extends Component
                     if ($akun) {
                         $akun->increment('saldo_saat_ini', $refundValue);
 
-                        // Record Mutasi Kas History (Retur Refund)
                         \App\Models\MutasiKas::create([
                             'akun_kas_id' => $akun->id,
                             'user_id' => auth()->id(),
@@ -1258,6 +1431,12 @@ class Inventory extends Component
             // 3. Update Detail & Header
             $detail->qty_terima -= $qtyToReturn;
             $detail->qty_pesan -= $qtyToReturn;
+
+            // clear the request since it has been fulfilled
+            $detail->qty_retur_request = 0;
+            if ($detail->qty_retur_request < 0)
+                $detail->qty_retur_request = 0;
+
             $detail->save();
 
             // Hitung ulang total harga nota
@@ -1272,7 +1451,7 @@ class Inventory extends Component
                 'user_id' => auth()->id(),
                 'team_id' => auth()->user()->current_team_id,
                 'action' => 'ITEM_RETURN_PRO',
-                'description' => 'Retur PRO: ' . $qtyToReturn . ' unit ' . $detail->barang->nama . ' (Refund senilai Rp' . number_format($qtyToReturn * $detail->harga_beli, 0, ',', '.') . ' dikembalikan ke saldo).',
+                'description' => 'Retur PRO: ' . $qtyToReturn . ' unit ' . $detail->barang->nama . ' disetujui Admin. (Refund: Rp' . number_format($qtyToReturn * $detail->harga_beli, 0, ',', '.') . ').',
                 'subject_type' => PembelianDetail::class,
                 'subject_id' => $detail->id
             ]);
@@ -1280,7 +1459,7 @@ class Inventory extends Component
             $this->qtyRetur[$detailId] = 0;
         });
 
-        $this->dispatch('success-retur', ['message' => 'Barang berhasil diretur. Stok dan Saldo Kas telah diperbarui secara otomatis.']);
+        $this->dispatch('success-retur', ['message' => 'Barang berhasil diretur. Stok dan Saldo Kas telah diperbarui.']);
     }
 
     public function updatedProvinceId($id)
@@ -1344,9 +1523,9 @@ class Inventory extends Component
 
     public function storeVendor()
     {
-        // RBAC Check: Member and Sales cannot create/edit Vendors
+        // RBAC Check: Only Admin and Purchasing (Editor) can manage Vendors
         $user = auth()->user();
-        if ($user->hasTeamRole($user->currentTeam, 'member') || $user->hasTeamRole($user->currentTeam, 'sales')) {
+        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'editor')) {
             session()->flash('error', 'Akses ditolak. Anda tidak memiliki hak untuk menambah atau mengubah data vendor.');
             return;
         }
@@ -1394,7 +1573,7 @@ class Inventory extends Component
         }
 
         session()->flash('success', 'Vendor ' . $vendor->nama . ' berhasil ditambahkan!');
-        $this->dispatch('close-modal-vendor');
+        $this->dispatch('close-modal', modalId: 'modal-vendor');
     }
 
     public function storeGudang()
@@ -1427,7 +1606,7 @@ class Inventory extends Component
         ]);
 
         $this->reset(['namaGudang', 'lokasiGudang', 'deskripsiGudang', 'gambarGudang', 'showModalGudang']);
-        $this->dispatch('close-modal-gudang');
+        $this->dispatch('close-modal', modalId: 'modal-gudang');
         session()->flash('success', 'Gudang baru berhasil ditambahkan!');
     }
 
@@ -1508,7 +1687,7 @@ class Inventory extends Component
         ]);
 
         $this->reset(['namaAkunKas', 'kodeAkunKas', 'saldoAwal', 'pjUserKasId']);
-        $this->dispatch('close-modal-akun-kas');
+        $this->dispatch('close-modal', modalId: 'modal-akun-kas');
         session()->flash('success', 'Akun Kas baru berhasil ditambahkan!');
     }
 }

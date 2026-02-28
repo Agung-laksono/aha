@@ -1,5 +1,4 @@
 <div class="m-5 max-w-full overflow-y-scroll" id="layarPenuh">
-
     <!-- Flash Message Notification -->
     @if (session()->has('success'))
         <div id="alert-3"
@@ -28,15 +27,13 @@
 
 
 
-    <section class="bg-gray-50 py-8 antialiased dark:bg-gray-900 md:py-5 " >
-        <!-- Tombol Toggle -->
-        <button id="fsToggle" class="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition">
-            Buka Layar Penuh
-        </button>
-
-        <div class="mx-auto px-4">
+    <section class="bg-gray-50 lg:py-8 antialiased dark:bg-gray-900 lg:py-5 " >
+        <div class="mx-auto lg:px-4">
             <!-- Pro Financial Deck -->
-            @include('livewire.Inventoryfolder.kas')        
+            <!-- Pro Financial Deck -->
+            @if(auth()->user()->hasTeamPermission(auth()->user()->currentTeam, 'manage_kas'))
+                @include('livewire.Inventoryfolder.kas')        
+            @endif
 
             <!-- Heading & Filters -->
             @include('livewire.Inventoryfolder.heading-filter')
@@ -157,28 +154,30 @@
                                             <span class="text-xs font-bold text-blue-600 mr-0.5">Rp</span>{{ $hargaJual }}
                                         </p>
 
-                                        <div class="flex gap-1">
-                                            @php
-                                                $isInCart = collect($purchaseCart)->contains('barang_id', $barang->id);
-                                            @endphp
-                                            <button type="button" wire:click="addToPurchaseCart({{ $barang->id }})"
-                                                class="flex items-center justify-center w-10 h-10 rounded-lg transition-all 
-                                                {{ $isInCart ? 'bg-green-100 text-green-600 cursor-default' : 'bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white shadow-sm active:scale-95' }}">
-                                                @if($isInCart)
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
-                                                @else
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                                                @endif
-                                            </button>
-                                            
-                                            <button type="button"
-                                                class="p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors dark:hover:bg-gray-700">
-                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                </svg>
-                                            </button>
-                                        </div>
+                                        @if(!auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'member') && !auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'sales') && !auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'logistik'))
+                                         <div class="flex gap-1">
+                                             @php
+                                                 $isInCart = collect($purchaseCart)->contains('barang_id', $barang->id);
+                                             @endphp
+                                             <button type="button" wire:click="addToPurchaseCart({{ $barang->id }})"
+                                                 class="flex items-center justify-center w-10 h-10 rounded-lg transition-all 
+                                                 {{ $isInCart ? 'bg-green-100 text-green-600 cursor-default' : 'bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white shadow-sm active:scale-95' }}">
+                                                 @if($isInCart)
+                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+                                                 @else
+                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                                                 @endif
+                                             </button>
+                                             
+                                             <button type="button"
+                                                 class="p-2 text-gray-500 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors dark:hover:bg-gray-700">
+                                                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                         d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                 </svg>
+                                             </button>
+                                         </div>
+                                         @endif
                                     </div>
                                 </div>
                             </div>
@@ -230,26 +229,28 @@
                                 <p class="text-xs text-gray-400 uppercase font-bold text-[9px] mb-0.5">Harga</p>
                                 <p class="text-sm font-black text-gray-900 dark:text-white">Rp{{ $hargaJual }}</p>
                             </div>
-                            <div class="flex gap-1">
-                                @php
-                                    $isInCart = collect($purchaseCart)->contains('barang_id', $barang->id);
-                                @endphp
-                                <button type="button" wire:click="addToPurchaseCart({{ $barang->id }})"
-                                    class="flex items-center justify-center w-8 h-8 rounded-lg transition-all 
-                                    {{ $isInCart ? 'bg-green-100 text-green-600' : 'bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white' }}">
-                                    @if($isInCart)
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
-                                    @else
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                                    @endif
-                                </button>
-                                
-                                <button type="button" class="p-1 text-gray-500 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                    </svg>
-                                </button>
-                            </div>
+                                @if(!auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'member') && !auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'sales') && !auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'logistik'))
+                                 <div class="flex gap-1">
+                                     @php
+                                         $isInCart = collect($purchaseCart)->contains('barang_id', $barang->id);
+                                     @endphp
+                                     <button type="button" wire:click="addToPurchaseCart({{ $barang->id }})"
+                                         class="flex items-center justify-center w-8 h-8 rounded-lg transition-all 
+                                         {{ $isInCart ? 'bg-green-100 text-green-600' : 'bg-orange-50 text-orange-600 hover:bg-orange-600 hover:text-white' }}">
+                                         @if($isInCart)
+                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+                                         @else
+                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                                         @endif
+                                     </button>
+                                     
+                                     <button type="button" class="p-1 text-gray-500 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors">
+                                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                         </svg>
+                                     </button>
+                                 </div>
+                                 @endif
                         </div>
                     @empty
                         <div class="py-10 text-center text-gray-500">Barang tidak ditemukan.</div>
@@ -277,7 +278,7 @@
 
     <!-- Floating Cart Button -->
     @if(count($purchaseCart) > 0)
-    @if(!auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'member') && !auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'sales'))
+    @if(auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin') || auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'editor'))
     <div class="fixed bottom-6 right-6 z-[40]">
         <button type="button" wire:click="openPurchaseModal"
             class="group relative flex items-center justify-center w-16 h-16 bg-orange-600 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300">
@@ -643,7 +644,21 @@
             }, 5000);
         });
 
-        // Global delegated listener for Flowbite modals in dynamic content
+        $wire.on('close-modal', (event) => {
+652:             const modalId = event.modalId;
+653:             if (window.FlowbiteInstances) {
+654:                 const modal = window.FlowbiteInstances.getInstance('Modal', modalId);
+655:                 if (modal) modal.hide();
+656:             } else {
+657:                 const modalEl = document.getElementById(modalId);
+658:                 if (modalEl) {
+659:                     modalEl.classList.add('hidden');
+660:                     modalEl.classList.remove('flex');
+661:                 }
+662:             }
+663:         });
+664: 
+665:         // Global delegated listener for Flowbite modals in dynamic content
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-modal-target]');
             if (!btn) return;
@@ -664,31 +679,7 @@
             }
         });
 
-        //layar penuh
-        const targetElement = document.getElementById('layarPenuh');
-        const btn = document.getElementById('fsToggle');
 
-        btn.addEventListener('click', () => {
-        if (!document.fullscreenElement) {
-            // Masuk ke Full Screen pada ELEMEN SPESIFIK
-            targetElement.requestFullscreen()
-            .catch(err => alert(`Gagal: ${err.message}`));
-        } else {
-            // KELUAR dari Full Screen (selalu melalui document)
-            document.exitFullscreen();
-        }
-        });
-
-        // Update tampilan tombol saat status berubah
-        document.addEventListener('fullscreenchange', () => {
-        if (document.fullscreenElement) {
-            btn.innerText = "Keluar Layar Penuh";
-            btn.classList.replace('bg-indigo-600', 'bg-red-600');
-        } else {
-            btn.innerText = "Buka Layar Penuh";
-            btn.classList.replace('bg-red-600', 'bg-indigo-600');
-        }
-        });
 
     </script>
     @endscript

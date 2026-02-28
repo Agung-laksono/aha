@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Gudang;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Component;
@@ -27,6 +28,18 @@ class UserManagement extends Component
     public $editPasswordConfirmation;
     public $showEditModal = false;
 
+    // === Gudang Assignment Modal State ===
+    public $gudangUserId;
+    public $gudangUserName;
+    public $assignedGudangIds = [];
+    public $showGudangModal = false;
+
+    // === Kas Assignment Modal State ===
+    public $kasUserId;
+    public $kasUserName;
+    public $assignedKasIds = [];
+    public $showKasModal = false;
+
     protected function createRules(): array
     {
         $roleRules = implode(',', array_keys(Jetstream::$roles));
@@ -49,6 +62,9 @@ class UserManagement extends Component
         ];
     }
 
+    // =============================================
+    // CREATE USER
+    // =============================================
     public function createUser()
     {
         $currentUser = auth()->user();
@@ -76,6 +92,9 @@ class UserManagement extends Component
         $this->dispatch('user-created');
     }
 
+    // =============================================
+    // EDIT USER
+    // =============================================
     public function openEditModal(int $userId)
     {
         $currentUser = auth()->user();
@@ -88,7 +107,6 @@ class UserManagement extends Component
         $this->editName = $user->name;
         $this->editEmail = $user->email;
 
-        // Fetch the user's current role in this team
         $membership = $currentUser->currentTeam->users()->where('user_id', $userId)->first();
         $this->editRole = $membership?->membership?->role ?? 'member';
 
@@ -117,8 +135,6 @@ class UserManagement extends Component
         }
 
         $user->save();
-
-        // Update the role in the team_user pivot table
         $team->users()->updateExistingPivot($user->id, ['role' => $this->editRole]);
 
         $this->reset(['editUserId', 'editName', 'editEmail', 'editRole', 'editPassword', 'editPasswordConfirmation']);
@@ -127,6 +143,75 @@ class UserManagement extends Component
         session()->flash('success', 'Data pengguna ' . $user->name . ' berhasil diperbarui.');
     }
 
+    // =============================================
+    // GUDANG ASSIGNMENT
+    // =============================================
+    public function openGudangModal(int $userId)
+    {
+        $currentUser = auth()->user();
+        if (!$currentUser->hasTeamRole($currentUser->currentTeam, 'admin')) {
+            abort(403, 'Akses ditolak.');
+        }
+
+        $user = User::findOrFail($userId);
+        $this->gudangUserId = $user->id;
+        $this->gudangUserName = $user->name;
+        $this->assignedGudangIds = $user->accessibleGudangIds();
+        $this->showGudangModal = true;
+    }
+
+    public function toggleGudangAccess(int $gudangId)
+    {
+        $user = User::findOrFail($this->gudangUserId);
+        if (in_array($gudangId, $this->assignedGudangIds)) {
+            $user->gudangs()->detach($gudangId);
+            $this->assignedGudangIds = array_values(
+                array_filter($this->assignedGudangIds, fn($id) => $id !== $gudangId)
+            );
+        } else {
+            $user->gudangs()->attach($gudangId);
+            $this->assignedGudangIds[] = $gudangId;
+        }
+    }
+
+    // =============================================
+    // KAS ASSIGNMENT
+    // =============================================
+    public function openKasModal(int $userId)
+    {
+        $currentUser = auth()->user();
+        if (!$currentUser->hasTeamRole($currentUser->currentTeam, 'admin')) {
+            abort(403, 'Akses ditolak.');
+        }
+
+        $user = User::findOrFail($userId);
+        $this->kasUserId = $user->id;
+        $this->kasUserName = $user->name;
+        $this->assignedKasIds = \App\Models\AkunKas::where('user_id', $user->id)
+            ->pluck('id')->toArray();
+        $this->showKasModal = true;
+    }
+
+    public function toggleKasAccess(int $kasId)
+    {
+        $kas = \App\Models\AkunKas::findOrFail($kasId);
+
+        if (in_array($kasId, $this->assignedKasIds)) {
+            $kas->user_id = null;
+            $kas->save();
+            $this->assignedKasIds = array_values(
+                array_filter($this->assignedKasIds, fn($id) => $id !== $kasId)
+            );
+        } else {
+            $kas->user_id = $this->kasUserId;
+            $kas->save();
+            $this->assignedKasIds[] = $kasId;
+        }
+    }
+
+    // =============================================
+    // RENDER
+    // =============================================
     public function render()
     {
         $currentUser = auth()->user();
@@ -150,6 +235,8 @@ class UserManagement extends Component
             'users' => $teamUsers,
             'roles' => $availableRoles,
             'ownerId' => $owner->id,
+            'gudangs' => Gudang::orderBy('nama')->get(),
+            'allKas' => \App\Models\AkunKas::with('user')->where('team_id', $currentUser->current_team_id)->orderBy('nama')->get(),
         ])->layout('layouts.app', ['header' => '<h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Manajemen Pengguna Tim</h2>']);
     }
 }

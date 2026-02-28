@@ -1,5 +1,4 @@
-<!-- Modal Riwayat Pembelian (Full PRO Version) -->
-<div id="modal-riwayat-pembelian" tabindex="-1" aria-hidden="true" wire:ignore.self
+<div id="modal-riwayat-pembelian" tabindex="-1" aria-hidden="true" wire:ignore.self wire:poll.10s
     class="bg-black bg-opacity-70 hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-[100] justify-center items-center w-full md:inset-0 h-full max-h-full">
     <div class="relative p-0 w-full max-w-7xl h-full md:h-[95vh] flex items-center justify-center">
         <!-- Modal content -->
@@ -71,8 +70,20 @@
                                         {{ strtoupper($p->status) }}
                                     </span>
                                 </div>
-                                <p class="text-[10px] font-black text-gray-900 dark:text-white mt-1">
-                                    Rp{{ number_format($p->total_harga, 0, ',', '.') }}</p>
+                                @if(!auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'logistik'))
+                                    <p class="text-[10px] font-black text-gray-900 dark:text-white mt-1">
+                                        Rp{{ number_format($p->total_harga, 0, ',', '.') }}</p>
+                                @endif
+                                
+                                @php
+                                    $pendingRequestsQty = $p->details->sum('qty_retur_request');
+                                @endphp
+                                @if($pendingRequestsQty > 0)
+                                    <div class="mt-2 inline-flex items-center gap-1.5 px-2 py-1 bg-amber-50 text-amber-600 rounded-lg border border-amber-200 shadow-sm animate-pulse w-full">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                        <span class="text-[9px] font-black uppercase tracking-widest">{{ $pendingRequestsQty }} Unit Retur Pending</span>
+                                    </div>
+                                @endif
                             </button>
                         @empty
                             <div class="p-8 text-center">
@@ -117,7 +128,8 @@
 
                                 <div class="flex gap-2">
                                     @if($this->selectedPembelian->status === 'PO')
-                                    @if(auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin') || auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'logistik'))
+                                    {{-- Logistik only sees warehouses they have access to. Admin sees all. Filtered in render() --}}
+                                    @if(auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin'))
                                         <button wire:click="markAsReceived({{ $this->selectedPembelian->id }})"
                                             wire:confirm="Konfirmasi: Anda akan menerima seluruh barang dalam pesanan ini dan menambahkannya ke stok. Lanjutkan?"
                                             class="flex items-center gap-2 px-5 py-2.5 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100 group">
@@ -176,15 +188,17 @@
                                     </div>
                                 </div>
 
-                                <div
-                                    class="p-5 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/10 dark:to-gray-800 border border-emerald-100 dark:border-emerald-800/30 rounded-3xl shadow-sm">
-                                    <p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-3">Total
-                                        Investasi</p>
-                                    <h4 class="text-2xl font-black text-gray-900 dark:text-white">
-                                        Rp{{ number_format($this->selectedPembelian->total_harga, 0, ',', '.') }}</h4>
-                                    <p class="text-[10px] font-bold text-emerald-600 uppercase mt-1 italic">
-                                        {{ $this->selectedPembelian->metode_pembayaran }}</p>
-                                </div>
+                                @if(!auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'logistik'))
+                                    <div
+                                        class="p-5 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/10 dark:to-gray-800 border border-emerald-100 dark:border-emerald-800/30 rounded-3xl shadow-sm">
+                                        <p class="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-3">Total
+                                            Investasi</p>
+                                        <h4 class="text-2xl font-black text-gray-900 dark:text-white">
+                                            Rp{{ number_format($this->selectedPembelian->total_harga, 0, ',', '.') }}</h4>
+                                        <p class="text-[10px] font-bold text-emerald-600 uppercase mt-1 italic">
+                                            {{ $this->selectedPembelian->metode_pembayaran }}</p>
+                                    </div>
+                                @endif
 
                                 <div
                                     class="p-5 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/10 dark:to-gray-800 border border-indigo-100 dark:border-indigo-800/30 rounded-3xl shadow-sm">
@@ -228,9 +242,13 @@
                                                 <th class="px-6 py-4">Item & SKU</th>
                                                 <th class="px-4 py-4 text-center">Qty Pesan</th>
                                                 <th class="px-4 py-4 text-center">Qty Terima</th>
-                                                <th class="px-6 py-4">Harga Satuan</th>
+                                                @if(!auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'logistik'))
+                                                    <th class="px-6 py-4">Harga Satuan</th>
+                                                @endif
                                                 <th class="px-6 py-4">Gudang & Penerimaan</th>
-                                                <th class="px-6 py-4 text-right">Subtotal</th>
+                                                @if(!auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'logistik'))
+                                                    <th class="px-6 py-4 text-right">Subtotal</th>
+                                                @endif
                                                 <th class="px-6 py-4 text-center">Aksi</th>
                                             </tr>
                                         </thead>
@@ -316,10 +334,12 @@
                                                         <span
                                                             class="px-3 py-1 {{ $d->qty_terima >= $d->qty_pesan ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600' }} rounded-lg font-black">{{ $d->qty_terima }}</span>
                                                     </td>
-                                                    <td class="px-6 py-4 font-bold text-gray-600 dark:text-gray-400">
-                                                        Rp{{ number_format($d->harga_beli, 0, ',', '.') }}</td>
+                                                    @if(!auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'logistik'))
+                                                        <td class="px-6 py-4 font-bold text-gray-600 dark:text-gray-400">
+                                                            Rp{{ number_format($d->harga_beli, 0, ',', '.') }}</td>
+                                                    @endif
                                                     <td class="px-6 py-4">
-                                                        @if($d->status_item !== 'Received' && $this->selectedPembelian->status !== 'Cancelled')
+                                                        @if($this->selectedPembelian->status !== 'Cancelled' && (auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin') || auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'logistik')))
                                                             <div x-data="{ open: false }" class="relative inline-block">
                                                                     <button @click="open = !open; rowActive = !rowActive"
                                                                         class="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl hover:bg-emerald-600 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest border border-emerald-100 shadow-sm">
@@ -341,11 +361,11 @@
                                                                         <div class="flex gap-1 items-center">
                                                                             <select wire:model="gudangReceived.{{ $d->id }}" 
                                                                                 class="flex-grow text-[10px] font-black uppercase border-gray-100 rounded-lg focus:ring-emerald-500 bg-gray-50 py-1.5 px-2 outline-none">
-                                                                                <option value="">-- Pilih --</option>
-                                                                                @foreach(App\Models\Gudang::all() as $g)
-                                                                                    <option value="{{ $g->id }}">{{ $g->nama }}</option>
-                                                                                @endforeach
-                                                                            </select>
+                                                                                 <option value="">-- Pilih --</option>
+                                                                                 @foreach($gudangs as $g)
+                                                                                     <option value="{{ $g->id }}">{{ $g->nama }}</option>
+                                                                                 @endforeach
+                                                                             </select>
                                                                             <button type="button" data-modal-target="modal-gudang" data-modal-toggle="modal-gudang"
                                                                                 class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all border border-indigo-100 shadow-sm"
                                                                                 title="Gudang Baru">
@@ -378,9 +398,11 @@
                                                             </div>
                                                         @endif
                                                     </td>
-                                                    <td
-                                                        class="px-6 py-4 text-right font-black text-gray-900 dark:text-white italic tracking-tighter">
-                                                        Rp{{ number_format($d->qty_pesan * $d->harga_beli, 0, ',', '.') }}</td>
+                                                    @if(!auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'logistik'))
+                                                        <td
+                                                            class="px-6 py-4 text-right font-black text-gray-900 dark:text-white italic tracking-tighter">
+                                                            Rp{{ number_format($d->qty_pesan * $d->harga_beli, 0, ',', '.') }}</td>
+                                                    @endif
                                                     <td class="px-6 py-4 text-center">
                                                         @if($this->selectedPembelian->status !== 'Cancelled' && $d->qty_terima > 0)
                                                             <div x-data="{ open: false }" class="relative flex justify-center"
@@ -406,35 +428,58 @@
                                                                     @click.away="open = false"
                                                                     class="absolute right-0 top-full z-[130] mt-2 w-56 bg-white dark:bg-gray-800 border dark:border-gray-700 p-4 rounded-2xl shadow-2xl space-y-4 border-t-4 border-t-rose-500"
                                                                     style="display: none;">
+                                                                    <!-- Pending Requests Indicator (Visible to Both) -->
+                                                                    @if($d->qty_retur_request > 0)
+                                                                    <div class="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl relative overflow-hidden">
+                                                                        <div class="absolute right-0 top-0 w-8 h-full bg-amber-400 opacity-20 transform skew-x-12 translate-x-2"></div>
+                                                                        <p class="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">
+                                                                            @if(auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin'))
+                                                                                Pengajuan Logistik
+                                                                            @else
+                                                                                Menunggu Eksekusi Admin
+                                                                            @endif
+                                                                        </p>
+                                                                        <p class="text-xl font-black text-rose-600">{{ $d->qty_retur_request }} <span class="text-[10px] text-gray-500 font-bold uppercase">Unit diminta</span></p>
+                                                                    </div>
+                                                                    @endif
+
                                                                     <div class="space-y-2">
                                                                         <div class="flex justify-between items-center">
                                                                             <label
-                                                                                class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Jml
-                                                                                Retur</label>
+                                                                                class="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                                                                                @if(auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin')) Input Jml Eksekusi @else Jml Pengajuan @endif
+                                                                            </label>
                                                                             <span
                                                                                 class="text-[9px] font-bold text-rose-500 uppercase tracking-widest">Maks:
-                                                                                {{ $d->qty_terima }}</span>
+                                                                                {{ $d->qty_terima - $d->qty_retur_request }}</span>
                                                                         </div>
                                                                         <div class="relative">
                                                                             <input type="number" wire:model="qtyRetur.{{ $d->id }}"
                                                                                 class="w-full p-2.5 text-sm font-black border border-gray-100 rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
-                                                                                min="1" max="{{ $d->qty_terima }}" placeholder="0">
+                                                                                min="1" max="{{ $d->qty_terima - $d->qty_retur_request }}" placeholder="{{ $d->qty_retur_request > 0 ? $d->qty_retur_request : '0' }}">
                                                                             <div
                                                                                 class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 uppercase">
                                                                                 Unit</div>
                                                                         </div>
-                                                                        <p class="text-[8px] text-gray-400 leading-tight italic">
-                                                                            Nilai refund akan otomatis dikalkulasi dan masuk ke
-                                                                            saldo kas.</p>
+                                                                        @if(auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin'))
+                                                                            <p class="text-[8px] text-gray-400 leading-tight italic">
+                                                                                Biarkan kosong/0 untuk menyetujui sesuai jumlah pengajuan logistik (jika ada).</p>
+                                                                        @endif
                                                                     </div>
+                                                                    
                                                                     @if(auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin'))
                                                                     <button wire:click="submitRetur({{ $d->id }})"
                                                                         @click="open = false"
-                                                                        class="w-full bg-rose-600 text-white py-2.5 text-[10px] font-black rounded-xl shadow-lg shadow-rose-500/30 hover:bg-rose-700 active:scale-95 transition-all uppercase tracking-widest">
-                                                                        Konfirmasi Retur
+                                                                        class="w-full mt-4 bg-rose-600 text-white py-2.5 text-[10px] font-black rounded-xl shadow-lg shadow-rose-500/30 hover:bg-rose-700 active:scale-95 transition-all uppercase tracking-widest flex justify-center items-center gap-2">
+                                                                        Eksekusi & Refund
                                                                     </button>
                                                                     @else
-                                                                    <p class="text-[9px] text-center text-gray-400 italic">Hanya Admin yang dapat memproses Retur.</p>
+                                                                    <button wire:click="askRetur({{ $d->id }})"
+                                                                        @click="open = false"
+                                                                        class="w-full mt-4 bg-amber-500 text-white py-2.5 text-[10px] font-black rounded-xl shadow-lg shadow-amber-500/30 hover:bg-amber-600 active:scale-95 transition-all uppercase tracking-widest">
+                                                                        Kirim Pengajuan
+                                                                    </button>
+                                                                    <p class="text-[9px] mt-2 text-center text-gray-400 italic">Admin akan mengeksekusi retur berdasarkan pengajuan ini.</p>
                                                                     @endif
                                                                 </div>
                                                             </div>

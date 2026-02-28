@@ -75,13 +75,29 @@
                                     </td>
                                     <td class="px-6 py-4">
                                         @if($user->id !== $ownerId)
-                                            <button wire:click="openEditModal({{ $user->id }})"
-                                                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white rounded-lg transition-all border border-blue-100">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                                </svg>
-                                                Edit
-                                            </button>
+                                            <div class="flex gap-2">
+                                                <button wire:click="openEditModal({{ $user->id }})"
+                                                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white rounded-lg transition-all border border-blue-100">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                    </svg>
+                                                    Edit
+                                                </button>
+                                                <button wire:click="openGudangModal({{ $user->id }})"
+                                                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white rounded-lg transition-all border border-emerald-100">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                                                    </svg>
+                                                    Akses Gudang
+                                                </button>
+                                                <button wire:click="openKasModal({{ $user->id }})"
+                                                    class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-cyan-600 bg-cyan-50 hover:bg-cyan-600 hover:text-white rounded-lg transition-all border border-cyan-100">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                                                    </svg>
+                                                    Akses Kas
+                                                </button>
+                                            </div>
                                         @else
                                             <span class="text-xs text-gray-400 italic">Owner</span>
                                         @endif
@@ -89,7 +105,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="px-6 py-8 text-center text-gray-500">
+                                    <td colspan="5" class="px-6 py-8 text-center text-gray-500">
                                         Belum ada pengguna lain di tim ini.
                                     </td>
                                 </tr>
@@ -243,6 +259,131 @@
                 </svg>
                 {{ __('Simpan Perubahan') }}
             </x-button>
+        </x-slot>
+    </x-dialog-modal>
+
+    <!-- Gudang Assignment Modal -->
+    <x-dialog-modal wire:model.live="showGudangModal" maxWidth="md">
+        <x-slot name="title">
+            <h3 class="text-xl font-bold border-b pb-4 dark:text-gray-200 dark:border-gray-700">
+                🏠 Akses Gudang — {{ $gudangUserName }}
+            </h3>
+        </x-slot>
+
+        <x-slot name="content">
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">
+                Centang gudang yang boleh diakses oleh staf ini untuk menerima barang. Perubahan langsung tersimpan secara real-time.
+            </p>
+
+            @if($gudangs->isEmpty())
+                <div class="text-center py-6 text-gray-400">
+                    <svg class="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                    <p class="text-sm font-medium">Belum ada gudang terdaftar.</p>
+                    <p class="text-xs">Tambahkan gudang terlebih dahulu di menu Master Gudang.</p>
+                </div>
+            @else
+                <div class="space-y-2">
+                    @foreach($gudangs as $gudang)
+                        <label wire:click="toggleGudangAccess({{ $gudang->id }})" class="flex items-center gap-4 p-3 rounded-xl border cursor-pointer transition-all
+                            {{ in_array($gudang->id, $assignedGudangIds) ? 'bg-emerald-50 border-emerald-300 dark:bg-emerald-900/20' : 'bg-white border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700' }}">
+                            <div class="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all
+                                {{ in_array($gudang->id, $assignedGudangIds) ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300' }}">
+                                @if(in_array($gudang->id, $assignedGudangIds))
+                                    <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                    </svg>
+                                @endif
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold text-sm {{ in_array($gudang->id, $assignedGudangIds) ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-800 dark:text-gray-200' }}">
+                                    {{ $gudang->nama }}
+                                </p>
+                                @if($gudang->lokasi)
+                                    <p class="text-xs text-gray-400 truncate">📍 {{ $gudang->lokasi }}</p>
+                                @endif
+                            </div>
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-full
+                                {{ in_array($gudang->id, $assignedGudangIds) ? 'bg-emerald-200 text-emerald-700' : 'bg-gray-100 text-gray-400' }}">
+                                {{ in_array($gudang->id, $assignedGudangIds) ? 'Aktif' : 'Tidak Aktif' }}
+                            </span>
+                        </label>
+                    @endforeach
+                </div>
+            @endif
+        </x-slot>
+
+        <x-slot name="footer">
+            <x-secondary-button wire:click="$set('showGudangModal', false)">
+                {{ __('Selesai') }}
+            </x-secondary-button>
+        </x-slot>
+    </x-dialog-modal>
+
+    <!-- Kas Assignment Modal -->
+    <x-dialog-modal wire:model.live="showKasModal" maxWidth="md">
+        <x-slot name="title">
+            <h3 class="text-xl font-bold border-b pb-4 dark:text-gray-200 dark:border-gray-700">
+                💰 Akses Kas — {{ $kasUserName }}
+            </h3>
+        </x-slot>
+
+        <x-slot name="content">
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">
+                Centang akun kas yang tanggung jawabnya dipegang (ditugaskan) ke staf ini. Perhatikan: 1 Kas hanya bisa dimiliki/dipegang oleh 1 PIC. Mengekstrak akses akan memindahkan kepemilikan.
+            </p>
+
+            @if(!isset($allKas) || $allKas->isEmpty())
+                <div class="text-center py-6 text-gray-400">
+                    <svg class="w-10 h-10 mx-auto mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p class="text-sm font-medium">Belum ada Akun Kas terdaftar.</p>
+                </div>
+            @else
+                <div class="space-y-2">
+                    @foreach($allKas as $kas)
+                        @php
+                            $isAssignedHere = in_array($kas->id, $assignedKasIds);
+                            $isAssignedElsewhere = !$isAssignedHere && $kas->user_id !== null;
+                        @endphp
+                        <label wire:click="toggleKasAccess({{ $kas->id }})" class="flex items-center gap-4 p-3 rounded-xl border cursor-pointer transition-all
+                            {{ $isAssignedHere ? 'bg-cyan-50 border-cyan-300 dark:bg-cyan-900/20' : 'bg-white border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700' }}">
+                            <div class="flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all
+                                {{ $isAssignedHere ? 'bg-cyan-500 border-cyan-500' : 'border-gray-300' }}">
+                                @if($isAssignedHere)
+                                    <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                    </svg>
+                                @endif
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold text-sm {{ $isAssignedHere ? 'text-cyan-700 dark:text-cyan-400' : 'text-gray-800 dark:text-gray-200' }}">
+                                    {{ $kas->nama }} <span class="text-[10px] font-black uppercase text-gray-500 tracking-wider">({{ $kas->kode }})</span>
+                                </p>
+                                @if($isAssignedElsewhere)
+                                    <p class="text-xs text-rose-500 truncate mt-0.5">⚠️ Dipegang: {{ optional($kas->user)->name }}</p>
+                                @elseif(!$isAssignedHere)
+                                    <p class="text-xs text-gray-400 truncate mt-0.5">Tidak ada PIC</p>
+                                @else
+                                    <p class="text-xs text-cyan-600 truncate mt-0.5">PIC saat ini</p>
+                                @endif
+                            </div>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-xl
+                                {{ $isAssignedHere ? 'bg-cyan-200 text-cyan-800' : 'bg-gray-100 text-gray-400' }}">
+                                {{ $isAssignedHere ? 'TERHUBUNG' : 'TIDAK TERHUBUNG' }}
+                            </span>
+                        </label>
+                    @endforeach
+                </div>
+            @endif
+        </x-slot>
+
+        <x-slot name="footer">
+            <x-secondary-button wire:click="$set('showKasModal', false)">
+                {{ __('Selesai') }}
+            </x-secondary-button>
         </x-slot>
     </x-dialog-modal>
 </div>
