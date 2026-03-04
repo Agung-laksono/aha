@@ -2,7 +2,7 @@
 <button type="button" x-data="{ 
             isFullscreen: false,
             toggleFS() {
-                const target = document.getElementById('layarPenuh');
+                const target = document.documentElement;
                 if (!document.fullscreenElement) {
                     target.requestFullscreen().then(() => this.isFullscreen = true).catch(err => console.error(err));
                 } else {

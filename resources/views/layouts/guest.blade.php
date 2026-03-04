@@ -17,6 +17,13 @@
 
     <!-- Styles -->
     @livewireStyles
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AHA App">
+    <link rel="apple-touch-icon" href="{{ asset('icons/icon.png') }}">
 </head>
 
 <body class="bg-gray-100 dark:bg-gray-900 bg-cover bg-center bg-no-repeat bg-fixed"
@@ -27,6 +34,14 @@
     </div>
 
     @livewireScripts
+    <script>
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js');
+            });
+        }
+    </script>
 </body>
 
 </html>

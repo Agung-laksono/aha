@@ -114,6 +114,8 @@
                                 <label
                                     class="text-[9px] font-black uppercase text-gray-400 tracking-widest ml-1">Tanggal</label>
                                 <input type="date" wire:model="tanggalKas" required
+                                    @if(!auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin'))
+                                    max="{{ date('Y-m-d') }}" @endif
                                     class="bg-white border-2 border-gray-100 text-gray-900 text-xs font-bold rounded-xl focus:ring-primary-500 focus:border-primary-500 block w-full p-3 dark:bg-gray-800 dark:border-gray-700 dark:text-white shadow-sm">
                             </div>
                         </div>
@@ -122,9 +124,53 @@
                         <div class="space-y-2">
                             <label class="text-[9px] font-black uppercase text-gray-400 tracking-widest ml-1">Keterangan
                                 / Memo</label>
-                            <textarea wire:model="keteranganKas" rows="3"
+                            <textarea wire:model="keteranganKas" rows="2"
                                 class="bg-white border-2 border-gray-100 text-gray-900 text-sm font-medium rounded-xl focus:ring-primary-500 focus:border-primary-500 block w-full p-3 dark:bg-gray-800 dark:border-gray-700 dark:text-white shadow-sm"
                                 placeholder="Opsional..."></textarea>
+                        </div>
+
+                        <!-- Upload Bukti -->
+                        <div class="space-y-2" x-data="{ isCompressing: false }">
+                            <label class="text-[9px] font-black uppercase text-gray-400 tracking-widest ml-1">Foto Bukti
+                                (Gunakan Kompres Otomatis)</label>
+                            <div class="relative group">
+                                <label
+                                    class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all overflow-hidden relative">
+                                    @if ($fotoMutasi)
+                                        <img src="{{ $fotoMutasi->temporaryUrl() }}"
+                                            class="absolute inset-0 w-full h-full object-cover">
+                                        <div
+                                            class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <p class="text-[10px] font-black text-white uppercase tracking-widest">Ganti
+                                                Foto</p>
+                                        </div>
+                                    @else
+                                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                            <svg class="w-8 h-8 mb-3 text-gray-400" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            <p class="text-[9px] text-gray-400 font-black uppercase tracking-widest">Klik
+                                                untuk Upload</p>
+                                        </div>
+                                    @endif
+                                    <input type="file" class="hidden" accept="image/*"
+                                        @change="isCompressing = true; handleAutoCompress($event.target, 'fotoMutasi', $wire).finally(() => isCompressing = false)" />
+                                </label>
+
+                                <div x-show="isCompressing"
+                                    class="absolute inset-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-2xl z-10"
+                                    style="display: none;">
+                                    <div
+                                        class="w-8 h-8 rounded-full border-4 border-emerald-100 border-t-emerald-600 animate-spin mb-2">
+                                    </div>
+                                    <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                                        Processing...</p>
+                                </div>
+                            </div>
+                            @error('fotoMutasi') <span
+                            class="text-xs font-bold text-rose-500 block">{{ $message }}</span> @enderror
                         </div>
 
                         <button type="submit"
@@ -164,9 +210,11 @@
                                         <div>
                                             <p
                                                 class="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">
-                                                {{ $mutasi->tanggal->format('d M Y') }}</p>
+                                                {{ $mutasi->tanggal->format('d M Y') }}
+                                            </p>
                                             <h5 class="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase">
-                                                {{ $mutasi->kategori }}</h5>
+                                                {{ $mutasi->kategori }}
+                                            </h5>
                                             @if($mutasi->keterangan)
                                                 <p class="text-[10px] text-gray-400 mt-0.5 italic">{{ $mutasi->keterangan }}</p>
                                             @endif
@@ -178,10 +226,16 @@
                                             {{ $mutasi->tipe === 'Masuk' ? '+' : '-' }}
                                             Rp{{ number_format($mutasi->jumlah, 0, ',', '.') }}
                                         </p>
-                                        <span
-                                            class="text-[8px] font-bold bg-gray-50 dark:bg-gray-700 px-1.5 py-0.5 rounded border border-gray-100 dark:border-gray-600 text-gray-400 uppercase tracking-tighter">
-                                            {{ $mutasi->user->name ?? 'System' }}
-                                        </span>
+                                        <div class="flex items-center gap-1.5 justify-end">
+                                            @if($mutasi->user)
+                                                <img src="https://ui-avatars.com/api/?name={{ urlencode($mutasi->user->name) }}&background=6366f1&color=fff"
+                                                    class="w-3.5 h-3.5 rounded-full">
+                                            @endif
+                                            <span
+                                                class="text-[8px] font-bold bg-gray-50 dark:bg-gray-700 px-1.5 py-0.5 rounded border border-gray-100 dark:border-gray-600 text-gray-400 uppercase tracking-tighter">
+                                                {{ $mutasi->user->name ?? 'System' }}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             @empty

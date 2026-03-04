@@ -1,7 +1,7 @@
 @if($this->userAkunKas->isNotEmpty())
     <div class="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         @foreach($this->userAkunKas as $akun)
-            <div wire:click="openModalKas({{ $akun->id }})"
+            <a href="{{ route('keuangan') }}"
                 class="p-4 bg-white dark:bg-gray-800 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl shadow-sm flex items-center gap-4 group hover:shadow-md transition-all cursor-pointer hover:border-emerald-500">
                 <div
                     class="p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-xl group-hover:scale-110 transition-transform">
@@ -20,7 +20,7 @@
                             class="text-[10px] font-bold mr-0.5">Rp</span>{{ number_format($akun->saldo_saat_ini, 0, ',', '.') }}
                     </p>
                 </div>
-            </div>
+            </a>
         @endforeach
     </div>
 @endif

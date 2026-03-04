@@ -24,14 +24,25 @@ trait LogsActivity
 
     protected static function recordActivity(Model $model, string $action)
     {
+        $description = $action . ' ' . class_basename($model);
+
+        // Cek jika model punya kustom deskripsi
+        if (method_exists($model, 'logDescription')) {
+            $description = $model->logDescription($action);
+        } else {
+            $description .= ': ' . ($model->nama ?? $model->nomor_nota ?? $model->id);
+        }
+
         ActivityLog::create([
-            'user_id' => auth()->id() ?? 1, // Fallback to ID 1 if not auth
+            'user_id' => auth()->id() ?? 1,
             'team_id' => auth()->user()?->current_team_id,
             'action' => $action,
-            'description' => $action . ' ' . class_basename($model) . ': ' . ($model->nama ?? $model->nomor_nota ?? $model->id),
+            'description' => $description,
             'subject_type' => get_class($model),
             'subject_id' => $model->id,
-            'properties' => !empty($model->getChanges()) ? json_encode($model->getChanges()) : null,
+            'properties' => $action === 'Created'
+                ? ['attributes' => $model->getAttributes()]
+                : (!empty($model->getChanges()) ? ['attributes' => $model->getChanges(), 'old' => array_intersect_key($model->getOriginal(), $model->getChanges())] : null),
         ]);
     }
 }

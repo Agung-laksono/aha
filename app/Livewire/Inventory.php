@@ -20,6 +20,8 @@ use App\Models\Province;
 use App\Models\Regency;
 use App\Models\District;
 use App\Models\Village;
+use App\Models\AkunKas;
+use App\Models\MutasiKas;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Livewire\WithFileUploads;
@@ -38,6 +40,13 @@ class Inventory extends Component
 
     // modal satuan
     public $namaSatuan, $kodeSatuan, $deskripsiSatuan;
+
+    // Properti Pelunasan Hutang
+    public $showPaymentModal = false;
+    public $pembelianIdBayar;
+    public $jumlahBayarPelunasan;
+    public $selectedAkunKasIdPelunasan;
+    public $buktiPembayaranPelunasan;
 
     // Properti Barang
     public $namaBarang, $skuBarang, $deskripsiBarang, $satuan_id, $sub_kategori_id;
@@ -82,7 +91,7 @@ class Inventory extends Component
     public $metodePembayaran = 'Cash';
     public $jatuhTempo = '';
     public $akunKasId = '';
-    public $jumlahDP = 0;
+    public $jumlahDP = '';
     public $invoiceFile = null;
     public $compressedInvoice = null; // For the base64 compressed image
 
@@ -157,20 +166,8 @@ class Inventory extends Component
     public $districts = [];
     public $villages = [];
 
-    // Mutasi Kas Properties
-    public $showModalKas = false;
-    public $selectedAkunKasId = null;
-    public $tipeKas = 'Masuk'; // Masuk or Keluar
-    public $jumlahKas = 0;
-    public $kategoriKas = '';
-    public $tanggalKas = '';
-    public $keteranganKas = '';
-
-    // Akun Kas Form
-    public $namaAkunKas = '';
-    public $kodeAkunKas = '';
-    public $saldoAwal = 0;
-    public $pjUserKasId = null;
+    // Properti Transfer Stok
+    public $searchTransfer = '';
 
     // Gudang Form
     public $namaGudang = '';
@@ -182,23 +179,82 @@ class Inventory extends Component
     public $searchHistory = '';
     public $qtyRetur = []; // [detail_id => qty]
 
+    // Stock Movement Log
+    public $showStockLogModal = false;
+    public $searchStockLog = '';
+    public $filterGudangLog = '';
+    public $stockLogPerPage = 20;
+
+    // Stock Transfer
+    public $showTransferModal = false;
+    public $gudangAsalId = null;
+    public $gudangTujuanId = null;
+    public $tanggalTransfer = '';
+    public $keteranganTransfer = '';
+    public $transferItems = []; // [{barang_id, nama, stok_asal, qty}]
+    public $searchTransferItem = '';
+    public $showSuggestions = false;
+
+    public function updatedGudangAsalId()
+    {
+        if (count($this->transferItems) > 0) {
+            $this->reset(['transferItems', 'searchTransferItem', 'showSuggestions']);
+            session()->flash('error_transfer', 'Keranjang transfer dikosongkan karena Gudang Asal diubah.');
+        }
+    }
+
+    public function updated($propertyName)
+    {
+        if (str_starts_with($propertyName, 'transferItems')) {
+            $this->validateOnly($propertyName, [
+                'transferItems.*.qty' => 'required|integer|min:1'
+            ]);
+
+            // Real-time stock check for the specific item
+            $parts = explode('.', $propertyName);
+            if (count($parts) === 3 && $parts[2] === 'qty') {
+                $index = $parts[1];
+                $item = $this->transferItems[$index];
+
+                $stok = \App\Models\Stok::where('barang_id', $item['barang_id'])
+                    ->where('gudang_id', $this->gudangAsalId)
+                    ->first();
+
+                if (!$stok || $stok->jumlah < $item['qty']) {
+                    $this->addError("transferItems.{$index}.qty", "Stok tidak mencukupi (Tersedia: " . ($stok ? $stok->jumlah : 0) . ")");
+                }
+            }
+        }
+
+        if (in_array($propertyName, ['gudangAsalId', 'gudangTujuanId', 'tanggalTransfer'])) {
+            $this->validateOnly($propertyName, [
+                'gudangAsalId' => 'required',
+                'gudangTujuanId' => 'required|different:gudangAsalId',
+                'tanggalTransfer' => 'required|date',
+            ]);
+        }
+    }
+
     public function updatedMetodePembayaran($value)
     {
         if ($value === 'Cash') {
-            $this->jumlahDP = 0;
+            $this->jumlahDP = '';
             $this->jatuhTempo = '';
         } else {
-            // Kredit
-            $this->jatuhTempo = now()->addDays(30)->format('Y-m-d');
+            // Kredit - keep empty as per user request for default null/empty
+            $this->jatuhTempo = '';
         }
     }
 
     public function updatedJumlahDP($value)
     {
+        // Remove dots for numeric check
+        $numericVal = (float) str_replace('.', '', $value);
         // Force re-render of components dependent on DP
-        if ($value > 0 && $this->metodePembayaran === 'Cash') {
+        if ($numericVal > 0 && $this->metodePembayaran === 'Cash') {
             $this->metodePembayaran = 'Kredit';
-            $this->jatuhTempo = now()->addDays(30)->format('Y-m-d');
+            // Keep jatuh tempo empty as per user request
+            $this->jatuhTempo = '';
         }
     }
 
@@ -238,15 +294,62 @@ class Inventory extends Component
     }
 
     #[Computed]
-    public function mutasiKasList()
+    public function pendingTransfers()
     {
-        if (!$this->selectedAkunKasId)
-            return collect();
-        return \App\Models\MutasiKas::where('akun_kas_id', $this->selectedAkunKasId)
+        return \App\Models\StockTransfer::with(['gudangAsal', 'gudangTujuan', 'details.barang'])
+            ->when($this->searchTransfer, function ($query) {
+                $query->where('nomor_transfer', 'like', '%' . $this->searchTransfer . '%')
+                    ->orWhereHas('gudangAsal', fn($q) => $q->where('nama', 'like', '%' . $this->searchTransfer . '%'))
+                    ->orWhereHas('gudangTujuan', fn($q) => $q->where('nama', 'like', '%' . $this->searchTransfer . '%'));
+            })
             ->latest()
-            ->take(20)
             ->get();
     }
+
+    public function confirmReceive($transferId)
+    {
+        $transfer = \App\Models\StockTransfer::with('details')->findOrFail($transferId);
+
+        if ($transfer->status !== 'pending') {
+            session()->flash('error', 'Transfer ini sudah diproses.');
+            return;
+        }
+
+        \DB::transaction(function () use ($transfer) {
+            $transfer->update([
+                'status' => 'received',
+                'received_at' => now()
+            ]);
+
+            foreach ($transfer->details as $detail) {
+                // Update Stok Tujuan (Increase or Create)
+                $stokTujuan = \App\Models\Stok::firstOrCreate(
+                    ['barang_id' => $detail->barang_id, 'gudang_id' => $transfer->gudang_tujuan_id],
+                    ['jumlah' => 0]
+                );
+                $stokTujuan->increment('jumlah', $detail->jumlah);
+
+                // Record Stock Movement - IN to Destination
+                \App\Models\StockMovement::record(
+                    $detail->barang_id,
+                    $transfer->gudang_tujuan_id,
+                    'Masuk',
+                    $detail->jumlah,
+                    'Transfer Stok (Masuk)',
+                    $transfer,
+                    "Transfer dari " . $transfer->gudangAsal->nama . " (#{$transfer->nomor_transfer})"
+                );
+            }
+        });
+
+        session()->flash('success', "Transfer #{$transfer->nomor_transfer} berhasil diterima. Stok tujuan telah diperbarui!");
+    }
+
+    public function downloadSuratJalan($transferId)
+    {
+        $this->dispatch('open-new-tab', url: route('print-transfer', $transferId));
+    }
+
 
     #[Computed]
     public function selectedPembelian()
@@ -375,6 +478,8 @@ class Inventory extends Component
             $this->gambarVendor = $base64Data;
         } elseif ($target === 'gambarGudang') {
             $this->gambarGudang = $base64Data;
+        } elseif ($target === 'buktiPembayaranPelunasan') {
+            $this->buktiPembayaranPelunasan = $base64Data;
         }
     }
 
@@ -520,31 +625,17 @@ class Inventory extends Component
         return $query->count();
     }
 
-    protected function fetchWilayah(string $url): array
+    protected function fetchWilayah(string $type, $parentId = null): array
     {
-        $filename = md5($url) . '.json';
+        $filename = ($type === 'provinces') ? 'provinces.json' : "{$type}_{$parentId}.json";
         $path = storage_path('app/wilayah/' . $filename);
 
-        // 1. Check if local JSON exists
         if (file_exists($path)) {
-            $data = json_decode(file_get_contents($path), true);
-            if ($data)
-                return $data;
+            $content = file_get_contents($path);
+            return json_decode($content, true) ?: [];
         }
 
-        // 2. If not, fetch from API and save locally
-        try {
-            $response = Http::withoutVerifying()->get($url);
-            $data = $response->json()['data'] ?? [];
-
-            if (!empty($data)) {
-                file_put_contents($path, json_encode($data));
-            }
-
-            return $data;
-        } catch (\Exception $e) {
-            return [];
-        }
+        return [];
     }
 
     public function render()
@@ -997,10 +1088,23 @@ class Inventory extends Component
             'compressedInvoice.required' => 'Bukti nota/invoice wajib diunggah.',
         ]);
 
-        DB::transaction(function () {
-            $subtotal = collect($this->purchaseCart)->sum(fn($i) => $i['qty'] * $i['harga']);
+        $subtotal = collect($this->purchaseCart)->sum(fn($i) => $i['qty'] * $i['harga']);
+        $totalTagihan = $subtotal + (float) ($this->ongkir ?: 0) + (float) ($this->biayaLain ?: 0);
+        $numericDP = (float) (str_replace('.', '', $this->jumlahDP) ?: 0);
+
+        // Balance Validation
+        if ($this->metodePembayaran === 'Cash' || ($this->metodePembayaran === 'Kredit' && $numericDP > 0)) {
+            $akun = \App\Models\AkunKas::find($this->akunKasId);
+            $requiredAmount = ($this->metodePembayaran === 'Cash') ? $totalTagihan : $numericDP;
+
+            if ($akun && $akun->saldo_saat_ini < $requiredAmount) {
+                $this->addError('akunKasId', 'Saldo kas tidak mencukupi (Tersedia: Rp' . number_format($akun->saldo_saat_ini, 0, ',', '.') . ').');
+                return;
+            }
+        }
+
+        DB::transaction(function () use ($subtotal, $totalTagihan, $numericDP) {
             $totalQty = collect($this->purchaseCart)->sum('qty');
-            $totalTagihan = $subtotal + (float) ($this->ongkir ?: 0) + (float) ($this->biayaLain ?: 0);
 
             // Distribution of Landed Cost (Ongkir & Biaya Lain)
             $additionalCostPerItem = $totalQty > 0 ? (($this->ongkir ?: 0) + ($this->biayaLain ?: 0)) / $totalQty : 0;
@@ -1011,7 +1115,7 @@ class Inventory extends Component
             $overallStatus = ($hasPO || $hasPending) ? 'PO' : 'Received';
 
             // Determine payment status
-            $statusPembayaran = ($this->metodePembayaran === 'Cash') ? 'Paid' : (($this->jumlahDP > 0) ? 'Partial' : 'Unpaid');
+            $statusPembayaran = ($this->metodePembayaran === 'Cash') ? 'Paid' : (($numericDP > 0) ? 'Partial' : 'Unpaid');
 
             $pembelian = Pembelian::create([
                 'nomor_nota' => $this->nomorNota,
@@ -1023,7 +1127,8 @@ class Inventory extends Component
                 'status_pembayaran' => $statusPembayaran,
                 'status' => $overallStatus,
                 'tanggal' => $this->tanggalPembelian,
-                'jatuh_tempo' => $this->metodePembayaran === 'Kredit' ? $this->jatuhTempo : null,
+                'jatuh_tempo' => ($this->metodePembayaran === 'Kredit' && $this->jatuhTempo) ? $this->jatuhTempo : null,
+                'user_id' => auth()->id(),
             ]);
 
             foreach ($this->purchaseCart as $item) {
@@ -1059,15 +1164,26 @@ class Inventory extends Component
                         'harga' => $landedCost,
                         'user_id' => Auth::id() ?? 1,
                     ]);
+
+                    // Log Stock Movement
+                    \App\Models\StockMovement::record(
+                        $item['barang_id'],
+                        $item['gudang_id'],
+                        'Masuk',
+                        $qtyTerima,
+                        'Pembelian',
+                        $pembelian,
+                        "Penerimaan barang langsung dari pembelian (Nota: {$pembelian->nomor_nota})"
+                    );
                 }
             }
 
             // Record Payment if Cash or Credit with DP
             $isCash = $this->metodePembayaran === 'Cash';
-            $isCreditWithDP = $this->metodePembayaran === 'Kredit' && $this->jumlahDP > 0;
+            $isCreditWithDP = $this->metodePembayaran === 'Kredit' && $numericDP > 0;
 
             if (($isCash || $isCreditWithDP) && $this->akunKasId) {
-                $bayar = $isCash ? $totalTagihan : $this->jumlahDP;
+                $bayar = $isCash ? $totalTagihan : $numericDP;
 
                 \App\Models\PembayaranPembelian::create([
                     'pembelian_id' => $pembelian->id,
@@ -1075,6 +1191,7 @@ class Inventory extends Component
                     'jumlah_bayar' => $bayar,
                     'tanggal_bayar' => $this->tanggalPembelian,
                     'catatan' => $isCash ? 'Pembayaran lunas saat transaksi.' : 'Pembayaran Uang Muka (DP).',
+                    'user_id' => auth()->id(),
                 ]);
 
                 // Update Kas Balance
@@ -1140,6 +1257,17 @@ class Inventory extends Component
                         if ($stok) {
                             $stok->jumlah -= $detail->qty_terima;
                             $stok->save();
+
+                            // Log Stock Movement (Reversal)
+                            \App\Models\StockMovement::record(
+                                $detail->barang_id,
+                                $detail->gudang_id,
+                                'Keluar',
+                                $detail->qty_terima,
+                                'Pembatalan',
+                                $pembelian,
+                                "Pembatalan transaksi pembelian (Nota: {$pembelian->nomor_nota})"
+                            );
                         }
                     }
                 }
@@ -1207,7 +1335,34 @@ class Inventory extends Component
                     if ($sisa > 0) {
                         // Use default warehouse if not specified
                         $gudangId = $detail->gudang_id ?? Gudang::first()->id;
+                        $gudang = Gudang::find($gudangId);
                         $this->processReceiving($detail, $sisa, $gudangId);
+
+                        // Add Individual Log for each item received mass-fully
+                        \App\Models\ActivityLog::create([
+                            'user_id' => auth()->id(),
+                            'team_id' => auth()->user()->current_team_id,
+                            'action' => 'RECEIVE_ITEM',
+                            'description' => "Menerima $sisa unit {$detail->barang->nama} (Mass Receive) ke gudang " . ($gudang->nama ?? 'Unknown') . " (Nota: {$pembelian->nomor_nota})",
+                            'subject_type' => PembelianDetail::class,
+                            'subject_id' => $detail->id,
+                            'properties' => [
+                                'qty' => $sisa,
+                                'gudang_id' => $gudangId,
+                                'gudang_nama' => $gudang->nama ?? 'Unknown'
+                            ]
+                        ]);
+
+                        // Log Stock Movement
+                        \App\Models\StockMovement::record(
+                            $detail->barang_id,
+                            $gudangId,
+                            'Masuk',
+                            $sisa,
+                            'Penerimaan',
+                            $detail,
+                            "Penerimaan barang massal untuk Nota: {$pembelian->nomor_nota}"
+                        );
                     }
                 }
             }
@@ -1282,14 +1437,31 @@ class Inventory extends Component
             }
 
             // Log
+            $gudang = Gudang::find($gudangId);
             \App\Models\ActivityLog::create([
                 'user_id' => auth()->id(),
                 'team_id' => auth()->user()->current_team_id,
                 'action' => 'RECEIVE_ITEM',
-                'description' => "Menerima $qty unit {$detail->barang->nama} ke gudang " . Gudang::find($gudangId)->nama . " (Nota: {$pembelian->nomor_nota})",
+                'description' => "Menerima $qty unit {$detail->barang->nama} ke gudang " . ($gudang->nama ?? 'Unknown') . " (Nota: {$pembelian->nomor_nota})",
                 'subject_type' => PembelianDetail::class,
-                'subject_id' => $detail->id
+                'subject_id' => $detail->id,
+                'properties' => [
+                    'qty' => $qty,
+                    'gudang_id' => $gudangId,
+                    'gudang_nama' => $gudang->nama ?? 'Unknown'
+                ]
             ]);
+
+            // Log Stock Movement
+            \App\Models\StockMovement::record(
+                $detail->barang_id,
+                $gudangId,
+                'Masuk',
+                $qty,
+                'Penerimaan',
+                $detail,
+                "Penerimaan barang individu untuk Nota: {$pembelian->nomor_nota}"
+            );
         });
 
         $this->dispatch('success-retur', ['message' => 'Barang berhasil diterima dan stok telah diperbarui.']);
@@ -1456,40 +1628,50 @@ class Inventory extends Component
                 'subject_id' => $detail->id
             ]);
 
+            // Log Stock Movement
+            \App\Models\StockMovement::record(
+                $detail->barang_id,
+                $detail->gudang_id,
+                'Keluar',
+                $qtyToReturn,
+                'Retur',
+                $detail,
+                "Retur barang untuk Nota: {$pembelian->nomor_nota}"
+            );
+
             $this->qtyRetur[$detailId] = 0;
         });
 
         $this->dispatch('success-retur', ['message' => 'Barang berhasil diretur. Stok dan Saldo Kas telah diperbarui.']);
     }
 
+    public function mount()
+    {
+        $this->provinces = $this->fetchWilayah('provinces');
+    }
+
     public function updatedProvinceId($id)
     {
+        $this->reset(['regency_id', 'district_id', 'village_id', 'regencies', 'districts', 'villages']);
         if ($id) {
-            $this->regencies = $this->fetchWilayah("https://wilayah.id/api/regencies/{$id}.json");
-        } else {
-            $this->regencies = [];
+            $this->regencies = $this->fetchWilayah('regencies', $id);
         }
-        $this->reset(['regency_id', 'district_id', 'village_id', 'districts', 'villages']);
     }
 
     public function updatedRegencyId($id)
     {
+        $this->reset(['district_id', 'village_id', 'districts', 'villages']);
         if ($id) {
-            $this->districts = $this->fetchWilayah("https://wilayah.id/api/districts/{$id}.json");
-        } else {
-            $this->districts = [];
+            $this->districts = $this->fetchWilayah('districts', $id);
         }
-        $this->reset(['district_id', 'village_id', 'villages']);
     }
 
     public function updatedDistrictId($id)
     {
+        $this->reset(['village_id', 'villages']);
         if ($id) {
-            $this->villages = $this->fetchWilayah("https://wilayah.id/api/villages/{$id}.json");
-        } else {
-            $this->villages = [];
+            $this->villages = $this->fetchWilayah('villages', $id);
         }
-        $this->reset(['village_id']);
     }
 
     public function updatedSubKategoriId($value)
@@ -1610,84 +1792,249 @@ class Inventory extends Component
         session()->flash('success', 'Gudang baru berhasil ditambahkan!');
     }
 
-    public function openModalKas($akunId)
+
+
+    #[Computed]
+    public function stockMovements()
     {
-        $this->selectedAkunKasId = $akunId;
-        $this->tanggalKas = date('Y-m-d');
-        $this->reset(['jumlahKas', 'kategoriKas', 'keteranganKas']);
-        $this->tipeKas = 'Masuk';
-        $this->showModalKas = true;
+        $query = \App\Models\StockMovement::with(['barang', 'gudang', 'user']);
+
+        if ($this->searchStockLog) {
+            $query->whereHas('barang', function ($q) {
+                $q->where('nama', 'like', '%' . $this->searchStockLog . '%')
+                    ->orWhere('sku', 'like', '%' . $this->searchStockLog . '%');
+            });
+        }
+
+        if ($this->filterGudangLog) {
+            $query->where('gudang_id', $this->filterGudangLog);
+        }
+
+        return $query->latest()->paginate($this->stockLogPerPage);
     }
 
-    public function storeMutasiKas()
+    public function loadMoreStockLog()
     {
-        // RBAC Check: Only Admin and Finance can process Mutasi Kas
-        $user = auth()->user();
-        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'finance')) {
-            session()->flash('error', 'Akses ditolak. Pengelola Kas hanya diperuntukkan bagi Admin dan Staff Keuangan.');
+        $this->stockLogPerPage += 20;
+    }
+
+    public function openStockLogModal()
+    {
+        $this->showStockLogModal = true;
+    }
+
+    // --- STOCK TRANSFER LOGIC ---
+
+    public function openTransferModal()
+    {
+        $this->reset(['gudangAsalId', 'gudangTujuanId', 'keteranganTransfer', 'transferItems', 'searchTransferItem', 'showSuggestions']);
+        $this->tanggalTransfer = date('Y-m-d');
+        $this->showTransferModal = true;
+    }
+
+    #[Computed]
+    public function searchBarangs()
+    {
+        if (strlen($this->searchTransferItem) < 2) {
+            $this->showSuggestions = false;
+            return collect();
+        }
+
+        $this->showSuggestions = true;
+        return \App\Models\Barang::where('nama', 'like', '%' . $this->searchTransferItem . '%')
+            ->orWhere('sku', 'like', '%' . $this->searchTransferItem . '%')
+            ->limit(10)
+            ->get();
+    }
+
+    public function addToTransferCart($barangId)
+    {
+        if (!$this->gudangAsalId) {
+            session()->flash('error_transfer', 'Pilih Gudang Asal terlebih dahulu.');
             return;
         }
 
+        // Check if already in cart
+        if (collect($this->transferItems)->contains('barang_id', $barangId)) {
+            return;
+        }
+
+        $barang = \App\Models\Barang::find($barangId);
+        $stokAsal = \App\Models\Stok::where('barang_id', $barangId)
+            ->where('gudang_id', $this->gudangAsalId)
+            ->first();
+
+        $jumlahStok = $stokAsal ? $stokAsal->jumlah : 0;
+
+        if ($jumlahStok <= 0) {
+            session()->flash('error_transfer', 'Stok barang ini kosong di gudang asal.');
+            return;
+        }
+
+        $this->transferItems[] = [
+            'barang_id' => $barangId,
+            'nama' => $barang->nama,
+            'sku' => $barang->sku,
+            'stok_asal' => $jumlahStok,
+            'qty' => 1
+        ];
+
+        $this->searchTransferItem = '';
+        $this->showSuggestions = false;
+    }
+
+    public function removeFromTransferCart($index)
+    {
+        unset($this->transferItems[$index]);
+        $this->transferItems = array_values($this->transferItems);
+    }
+
+    public function saveTransfer()
+    {
         $this->validate([
-            'selectedAkunKasId' => 'required|exists:akun_kas,id',
-            'tipeKas' => 'required|in:Masuk,Keluar',
-            'jumlahKas' => 'required|numeric|min:0',
-            'kategoriKas' => 'required|string|min:3',
-            'tanggalKas' => 'required|date',
-            'keteranganKas' => 'nullable|string',
+            'gudangAsalId' => 'required',
+            'gudangTujuanId' => 'required|different:gudangAsalId',
+            'tanggalTransfer' => 'required|date',
+            'transferItems' => 'required|array|min:1',
+            'transferItems.*.qty' => 'required|integer|min:1'
+        ], [
+            'gudangTujuanId.different' => 'Gudang tujuan tidak boleh sama dengan gudang asal.',
+            'transferItems.required' => 'Pilih minimal satu barang untuk ditransfer.'
         ]);
 
-        DB::transaction(function () {
-            $akun = \App\Models\AkunKas::findOrFail($this->selectedAkunKasId);
+        // Final stock check
+        foreach ($this->transferItems as $item) {
+            $stok = \App\Models\Stok::where('barang_id', $item['barang_id'])
+                ->where('gudang_id', $this->gudangAsalId)
+                ->first();
 
-            \App\Models\MutasiKas::create([
-                'akun_kas_id' => $this->selectedAkunKasId,
+            if (!$stok || $stok->jumlah < $item['qty']) {
+                session()->flash('error_transfer', "Stok {$item['nama']} tidak mencukupi di gudang asal.");
+                return;
+            }
+        }
+
+        \DB::transaction(function () {
+            $nomor = 'TRF-' . date('Ymd') . '-' . strtoupper(str()->random(5));
+
+            $transfer = \App\Models\StockTransfer::create([
+                'nomor_transfer' => $nomor,
+                'gudang_asal_id' => $this->gudangAsalId,
+                'gudang_tujuan_id' => $this->gudangTujuanId,
                 'user_id' => auth()->id(),
-                'tipe' => $this->tipeKas,
-                'kategori' => $this->kategoriKas,
-                'jumlah' => $this->jumlahKas,
-                'tanggal' => $this->tanggalKas,
-                'keterangan' => $this->keteranganKas,
+                'team_id' => auth()->user()->current_team_id,
+                'tanggal' => $this->tanggalTransfer,
+                'status' => 'pending',
+                'keterangan' => $this->keteranganTransfer,
+                'total_qty' => collect($this->transferItems)->sum('qty')
             ]);
 
-            if ($this->tipeKas === 'Masuk') {
-                $akun->increment('saldo_saat_ini', $this->jumlahKas);
-            } else {
-                $akun->decrement('saldo_saat_ini', $this->jumlahKas);
+            foreach ($this->transferItems as $item) {
+                // Save detail
+                $transfer->details()->create([
+                    'barang_id' => $item['barang_id'],
+                    'jumlah' => $item['qty']
+                ]);
+
+                // Update Stok Asal (Decrease)
+                $stokAsal = \App\Models\Stok::where('barang_id', $item['barang_id'])
+                    ->where('gudang_id', $this->gudangAsalId)
+                    ->first();
+                $stokAsal->decrement('jumlah', $item['qty']);
+
+                // Record Stock Movement - Only OUT from Source
+                \App\Models\StockMovement::record(
+                    $item['barang_id'],
+                    $this->gudangAsalId,
+                    'Keluar',
+                    $item['qty'],
+                    'Transfer Stok (Keluar)',
+                    $transfer,
+                    "Transfer ke " . $transfer->gudangTujuan->nama . " (#{$nomor}) - Status: Pending"
+                );
             }
         });
 
-        session()->flash('success', 'Mutasi Kas berhasil dicatat!');
-        // Keep selectedAkunKasId to refresh the list in modal
-        $this->reset(['jumlahKas', 'kategoriKas', 'keteranganKas']);
+        $this->showTransferModal = false;
+        $this->reset(['transferItems', 'gudangAsalId', 'gudangTujuanId', 'keteranganTransfer']);
+        session()->flash('success', 'Transfer stok berhasil diproses!');
     }
 
-    public function storeAkunKas()
+    public function openPelunasanModal($id)
     {
-        // RBAC Check: Only Admin and Finance can manage Akun Kas
-        $user = auth()->user();
-        if (!$user->hasTeamRole($user->currentTeam, 'admin') && !$user->hasTeamRole($user->currentTeam, 'finance')) {
-            session()->flash('error', 'Akses ditolak. Fitur Manajemen Kas hanya dapat diakses oleh Admin dan Keuangan.');
+        $this->pembelianIdBayar = $id;
+        $pembelian = Pembelian::find($id);
+        if ($pembelian) {
+            $this->jumlahBayarPelunasan = $pembelian->sisa_tagihan;
+            $this->selectedAkunKasIdPelunasan = AkunKas::first()->id ?? '';
+            $this->showPaymentModal = true;
+        }
+    }
+
+    public function processPelunasan()
+    {
+        $this->validate([
+            'jumlahBayarPelunasan' => 'required|numeric|min:1',
+            'selectedAkunKasIdPelunasan' => 'required|exists:akun_kas,id',
+            'buktiPembayaranPelunasan' => 'required',
+        ]);
+
+        $pembelian = Pembelian::findOrFail($this->pembelianIdBayar);
+        $akunKas = AkunKas::findOrFail($this->selectedAkunKasIdPelunasan);
+
+        if ($this->jumlahBayarPelunasan > $pembelian->sisa_tagihan) {
+            $this->addError('jumlahBayarPelunasan', 'Jumlah bayar tidak boleh melebihi sisa tagihan.');
             return;
         }
 
-        $this->validate([
-            'namaAkunKas' => 'required|min:3',
-            'kodeAkunKas' => 'required|unique:akun_kas,kode',
-            'saldoAwal' => 'required|numeric|min:0',
-        ]);
+        if ($this->jumlahBayarPelunasan > $akunKas->saldo_saat_ini) {
+            $this->addError('jumlahBayarPelunasan', 'Saldo kas tidak mencukupi.');
+            return;
+        }
 
-        \App\Models\AkunKas::create([
-            'nama' => $this->namaAkunKas,
-            'kode' => $this->kodeAkunKas,
-            'saldo_awal' => $this->saldoAwal,
-            'saldo_saat_ini' => $this->saldoAwal,
-            'user_id' => $this->pjUserKasId ?: auth()->id(),
-            'team_id' => auth()->user()->current_team_id,
-        ]);
+        \DB::transaction(function () use ($pembelian, $akunKas) {
+            $path = $this->saveImage($this->buktiPembayaranPelunasan, 'bukti_pembayaran');
 
-        $this->reset(['namaAkunKas', 'kodeAkunKas', 'saldoAwal', 'pjUserKasId']);
-        $this->dispatch('close-modal', modalId: 'modal-akun-kas');
-        session()->flash('success', 'Akun Kas baru berhasil ditambahkan!');
+            // 1. Catat Pembayaran
+            \App\Models\PembayaranPembelian::create([
+                'pembelian_id' => $pembelian->id,
+                'akun_kas_id' => $akunKas->id,
+                'jumlah_bayar' => $this->jumlahBayarPelunasan,
+                'tanggal_bayar' => now(),
+                'metode_bayar' => 'Cash',
+                'keterangan' => 'Pelunasan Hutang (via Inventory) Nota #' . $pembelian->nomor_nota,
+                'bukti_pembayaran' => $path,
+                'user_id' => auth()->id(),
+            ]);
+
+            // 2. Potong Saldo Akun Kas
+            $akunKas->decrement('saldo_saat_ini', $this->jumlahBayarPelunasan);
+
+            // 3. Catat Mutasi Kas
+            \App\Models\MutasiKas::create([
+                'akun_kas_id' => $akunKas->id,
+                'user_id' => auth()->id(),
+                'tanggal' => now(),
+                'tipe' => 'Keluar',
+                'kategori' => 'Pelunasan Hutang',
+                'jumlah' => $this->jumlahBayarPelunasan,
+                'keterangan' => 'Pelunasan Hutang ke ' . ($pembelian->vendor->nama ?? 'Vendor') . ' (Nota #' . $pembelian->nomor_nota . ')',
+            ]);
+
+            // 4. Update status pembayaran jika sudah lunas
+            if (($pembelian->terbayar + $this->jumlahBayarPelunasan) >= ($pembelian->total_harga + $pembelian->biaya_ongkir + $pembelian->biaya_lain)) {
+                $pembelian->update(['status_pembayaran' => 'Lunas']);
+            } else {
+                $pembelian->update(['status_pembayaran' => 'Dibayar Sebagian']);
+            }
+        });
+
+        $this->showPaymentModal = false;
+        $this->reset(['jumlahBayarPelunasan', 'pembelianIdBayar']);
+
+        $this->dispatch('swal:success', [
+            'title' => 'Pembayaran Berhasil',
+            'text' => 'Pelunasan hutang telah dicatat.',
+        ]);
     }
 }

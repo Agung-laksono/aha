@@ -95,8 +95,8 @@
                     <!-- riwayat pembelian -->
                     <button data-modal-target="modal-riwayat-pembelian" data-modal-toggle="modal-riwayat-pembelian"
                         type="button"
-                        class="relative flex items-center justify-center p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-indigo-600 hover:text-white transition-all shadow-sm group"
-                        title="Riwayat Pembelian">
+                        class="relative flex items-center justify-center p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-orange-600 hover:text-white transition-all shadow-sm group"
+                        title="Riwayat Pembelian & Retur">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -109,6 +109,27 @@
                                     class="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border-2 border-white dark:border-gray-800 text-[8px] font-black text-white justify-center items-center">{{ $this->pendingReturnsCount }}</span>
                             </span>
                         @endif
+                    </button>
+
+                    <!-- riwayat transfer stok -->
+                    <button data-modal-target="modal-riwayat-transfer" data-modal-toggle="modal-riwayat-transfer"
+                        type="button"
+                        class="flex items-center justify-center p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-blue-600 hover:text-white transition-all shadow-sm group"
+                        title="Riwayat Transfer Stok">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                    </button>
+
+                    <!-- log mutasi produk -->
+                    <button wire:click="openStockLogModal" type="button"
+                        class="flex items-center justify-center p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-500 hover:bg-emerald-600 hover:text-white transition-all shadow-sm group"
+                        title="Log Mutasi Stok">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
                     </button>
 
                     @if(auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin') || auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'editor'))
@@ -141,6 +162,18 @@
                                 x-transition:enter-start="transform opacity-0 scale-95 translate-y-2"
                                 x-transition:enter-end="transform opacity-100 scale-100 translate-y-0">
                                 <div class="p-2 space-y-1">
+                                    @if(auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin') || auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'logistik'))
+                                        <button wire:click="openTransferModal" @click="open = false"
+                                            class="w-full flex items-center px-4 py-3 text-[10px] font-black text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-xl transition uppercase tracking-[0.1em] text-left">
+                                            <svg class="w-4 h-4 mr-3 text-blue-500" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                            </svg>
+                                            Transfer Barang
+                                        </button>
+                                        <div class="h-px bg-gray-100 dark:bg-gray-700 my-1"></div>
+                                    @endif
                                     @if(auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'admin') || auth()->user()->hasTeamRole(auth()->user()->currentTeam, 'editor'))
                                         <button data-modal-target="modal-vendor" data-modal-toggle="modal-vendor"
                                             @click="open = false"

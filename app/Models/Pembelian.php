@@ -10,6 +10,10 @@ class Pembelian extends Model
     use LogsActivity;
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'tanggal' => 'date',
+    ];
+
     public function vendor()
     {
         return $this->belongsTo(Vendor::class);
@@ -38,5 +42,10 @@ class Pembelian extends Model
     public function getSisaTagihanAttribute()
     {
         return $this->total_harga + $this->biaya_ongkir + $this->biaya_lain - $this->terbayar;
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

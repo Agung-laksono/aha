@@ -14,17 +14,17 @@
             class="relative px-6 py-2 border-b dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between z-[140] shadow-md">
 
             <!-- LEFT: Search Area -->
-            <div class="w-1/3 flex items-center">
-                <div class="relative w-full max-w-sm">
-                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex-1 flex items-center min-w-0">
+                <div class="relative w-full max-w-xs transition-all">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" fill="none"
                                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
                     <input type="text" wire:model.live.debounce.300ms="searchBarangPurchase" autocomplete="off"
-                        class="w-full p-2.5 pl-10 text-sm font-bold border-2 border-gray-100 rounded-xl focus:ring-0 focus:border-primary-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all shadow-sm placeholder-gray-300"
-                        placeholder="Cari nama atau SKU produk...">
+                        class="w-full p-2 pl-9 text-[10px] sm:text-sm font-bold border-2 border-gray-100 rounded-xl focus:ring-0 focus:border-primary-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-all shadow-sm placeholder-transparent sm:placeholder-gray-300"
+                        placeholder="Cari produk...">
 
                     <!-- Search Results Dropdown -->
                     @if($searchBarangResults->isNotEmpty())
@@ -70,24 +70,23 @@
                 </div>
             </div>
 
-            <!-- CENTER: Title (Absolute Centered) -->
-            <div
-                class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center text-center pointer-events-none w-1/3">
-                <div class="flex items-center gap-2 mb-1">
-                    <div class="p-1.5 bg-primary-100 rounded-lg dark:bg-primary-900/30 text-primary-600 relative">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <!-- CENTER: Title (Flexible Centering) -->
+            <div class="flex-1 flex flex-col items-center justify-center text-center px-2">
+                <div class="flex items-center gap-1.5">
+                    <div class="p-1 sm:p-1.5 bg-primary-100 rounded-lg dark:bg-primary-900/30 text-primary-600">
+                        <svg class="w-3.5 h-3.5 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
                     </div>
                     @php $totalQtyCart = collect($purchaseCart)->sum('qty'); @endphp
                     <h3
-                        class="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
-                        Pembelian Baru
+                        class="text-[10px] sm:text-base md:text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-1.5">
+                        Pembelian<span class="hidden xs:inline">Baru</span>
                         @if($totalQtyCart > 0)
                             <span
-                                class="text-primary-600 bg-primary-50 dark:bg-primary-900/30 dark:text-primary-400 rounded-full px-2.5 py-0.5 text-xs tracking-widest shadow-sm border border-primary-100 dark:border-primary-800">
-                                {{ $totalQtyCart }} ITEM
+                                class="text-primary-600 bg-primary-50 dark:bg-primary-900/30 dark:text-primary-400 rounded-full px-1.5 sm:px-2.5 py-0.5 text-[8px] sm:text-xs tracking-widest shadow-sm border border-primary-100 dark:border-primary-800">
+                                {{ $totalQtyCart }}
                             </span>
                         @endif
                     </h3>
@@ -95,26 +94,21 @@
             </div>
 
             <!-- RIGHT: Actions -->
-            <div class="w-1/3 flex justify-end items-center gap-3">
+            <div class="flex-1 flex justify-end items-center gap-2 sm:gap-3">
                 <!-- No. Nota Input -->
                 <div
-                    class="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-primary-100 focus-within:border-primary-500 transition-all">
-                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    class="flex items-center gap-1.5 sm:gap-2 bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 rounded-xl px-2 sm:px-3 py-1.5 sm:py-2 shadow-sm focus-within:ring-2 focus-within:ring-primary-100 focus-within:border-primary-500 transition-all">
                     <span
-                        class="text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap hidden sm:inline">No.
-                        Nota</span>
-                    <input type="text" wire:model.live.debounce.500ms="nomorNota"
-                        class="w-24 xl:w-32 bg-transparent border-none p-0 text-xs font-mono font-black text-right focus:ring-0 dark:text-white placeholder-gray-300 dark:placeholder-gray-500 uppercase @error('nomorNota') text-rose-500 @enderror"
-                        placeholder="AUTO">
+                        class="text-[8px] sm:text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap hidden lg:inline">Nota</span>
+                    <input disabled readonly type="text" wire:model.live.debounce.500ms="nomorNota"
+                        class="w-28 sm:w-36 md:w-44 lg:w-52 bg-transparent border-none p-0 text-[10px] sm:text-xs font-mono font-black text-right focus:ring-0 dark:text-white placeholder-gray-300 dark:placeholder-gray-500 uppercase @error('nomorNota') text-rose-500 @enderror"
+                        placeholder="NP">
                 </div>
 
                 <!-- Close Button -->
                 <button type="button" wire:click="$set('showPurchaseModal', false)"
-                    class="text-gray-400 bg-gray-50 hover:bg-rose-50 hover:text-rose-600 rounded-xl p-2.5 transition-all outline-none border border-transparent hover:border-rose-100 dark:bg-gray-700 dark:hover:bg-rose-900/30">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="text-gray-400 bg-gray-50 hover:bg-rose-50 hover:text-rose-600 rounded-xl p-2 sm:p-2.5 transition-all outline-none border border-transparent hover:border-rose-100 dark:bg-gray-700 dark:hover:bg-rose-900/30">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                             d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -196,27 +190,27 @@
                                                         <div class="grid grid-cols-12 gap-4 items-start">
 
                                                             <!-- Column 1: QTY & JUM -->
-                                                            <div class="col-span-6 lg:col-span-3 space-y-1.5">
+                                                            <div class="col-span-4 lg:col-span-2 space-y-1.5">
                                                                 <label
                                                                     class="block text-[9px] font-black text-gray-400 uppercase tracking-widest text-center">Jumlah
                                                                     (Qty)</label>
                                                                 <input type="number" wire:model.live="purchaseCart.{{ $index }}.qty" min="1"
-                                                                    class="w-full xl:w-3/4 mx-auto block p-2.5 text-center text-sm font-black border-2 border-gray-100 dark:border-gray-700 rounded-xl focus:ring-0 focus:border-primary-500 dark:bg-gray-800 bg-white shadow-sm transition-all hover:border-primary-200">
+                                                                    class="w-full mx-auto block p-2.5 text-center text-sm font-black border-2 border-gray-100 dark:border-gray-700 rounded-xl focus:ring-0 focus:border-primary-500 dark:bg-gray-800 bg-white shadow-sm transition-all hover:border-primary-200">
                                                             </div>
 
                                                             <!-- Column 2: HARGA -->
-                                                            <div class="col-span-6 lg:col-span-4 space-y-1.5">
+                                                            <div class="col-span-8 lg:col-span-3 space-y-1.5">
                                                                 <label
                                                                     class="block text-[9px] font-black text-gray-400 uppercase tracking-widest">Harga
                                                                     Beli Satuan</label>
                                                                 <div class="relative"
                                                                     x-data="{ 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        val: @entangle('purchaseCart.' . $index . '.harga').live,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        format(v) { 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            if (!v) return ''; 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            return v.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        } 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }">
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        val: @entangle('purchaseCart.' . $index . '.harga').live,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        format(v) { 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            if (!v) return ''; 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            return v.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        } 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }">
                                                                     <span
                                                                         class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[11px] font-black text-gray-400">Rp</span>
                                                                     <input type="text" x-bind:value="format(val)"
@@ -226,15 +220,15 @@
                                                             </div>
 
                                                             <!-- Column 3: STATUS & GUDANG -->
-                                                            <div class="col-span-12 lg:col-span-5 space-y-3">
+                                                            <div class="col-span-12 lg:col-span-7 space-y-3">
 
-                                                                <div class="grid grid-cols-2 gap-3">
-                                                                    <div class="space-y-1.5">
+                                                                <div class="grid grid-cols-12 gap-3">
+                                                                    <div class="col-span-5 space-y-1.5">
                                                                         <label
                                                                             class="block text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</label>
                                                                         <select wire:model.live="purchaseCart.{{ $index }}.status"
                                                                             class="w-full text-xs font-black uppercase border-2 rounded-xl p-2.5 focus:ring-0 transition-all cursor-pointer outline-none shadow-sm appearnce-none
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        {{ $item['status'] === 'Received'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        {{ $item['status'] === 'Received'
                                 ? 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800'
                                 : 'text-orange-600 bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800' }}">
                                                                             <option value="Received">DITERIMA</option>
@@ -242,7 +236,7 @@
                                                                         </select>
                                                                     </div>
 
-                                                                    <div class="space-y-1.5">
+                                                                    <div class="col-span-7 space-y-1.5">
                                                                         <label
                                                                             class="block text-[9px] font-black text-gray-400 uppercase tracking-widest">Tujuan
                                                                             Gudang</label>
@@ -277,17 +271,17 @@
                                                             <div class="flex items-center gap-3">
                                                                 <div class="flex items-center gap-2"
                                                                     x-data="{ 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    openEditor() {
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        $dispatch('open-quill-editor', { 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            index: {{ $index }}, 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            catatan: @js($item['catatan']),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            catatanInternal: @js($item['catatan_internal'])
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        });
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }">
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    openEditor() {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        $dispatch('open-quill-editor', { 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            index: {{ $index }}, 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            catatan: @js($item['catatan']),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            catatanInternal: @js($item['catatan_internal'])
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        });
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }">
                                                                     <button type="button" @click="openEditor()"
                                                                         class="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all shadow-sm border-2 text-[10px] font-black tracking-widest uppercase
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    {{ ($item['catatan'] || $item['catatan_internal']) ? 'bg-indigo-50 border-indigo-200 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-400 hover:border-indigo-300 hover:text-indigo-500' }}">
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    {{ ($item['catatan'] || $item['catatan_internal']) ? 'bg-indigo-50 border-indigo-200 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-400 hover:border-indigo-300 hover:text-indigo-500' }}">
                                                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
                                                                             viewBox="0 0 24 24">
                                                                             <path stroke-linecap="round" stroke-linejoin="round"
@@ -529,8 +523,8 @@
                                             <div class="relative" x-data="{ dp: @entangle('jumlahDP').live }">
                                                 <span
                                                     class="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-rose-400">Rp</span>
-                                                <input type="text" x-model="dp"
-                                                    x-on:input="dp = $event.target.value.replace(/\D/g, '')"
+                                                <input type="text" x-on:input="dp = $event.target.value.replace(/\D/g, '')"
+                                                    x-bind:value="dp?.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.')"
                                                     class="w-full p-2.5 pl-9 text-xs font-black border border-rose-200 rounded-xl focus:ring-rose-500 placeholder-rose-200 dark:bg-gray-800 dark:text-rose-400"
                                                     placeholder="0">
                                             </div>
@@ -678,9 +672,143 @@
                                         SIMPAN
                                     </button>
                                 @else
-                                    <button type="button" disabled
-                                        class="min-w-[240px] bg-gray-100 text-gray-400 font-black rounded-2xl text-sm px-8 py-4 opacity-50 cursor-not-allowed uppercase tracking-widest">Lengkapi
-                                        Data</button>
+                                    <div class="flex flex-col items-center gap-3">
+                                        <button type="button" disabled
+                                            class="min-w-[240px] bg-gray-100 text-gray-400 font-black rounded-2xl text-sm px-8 py-4 opacity-50 cursor-not-allowed uppercase tracking-widest">
+                                            Lengkapi Data
+                                        </button>
+
+                                        <!-- Checklist Area -->
+                                        <div
+                                            class="w-full max-w-[240px] bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-3 border border-gray-100 dark:border-gray-700 space-y-2">
+                                            <p
+                                                class="text-[8px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 text-center">
+                                                Persyaratan Transaksi</p>
+
+                                            <div class="grid grid-cols-1 gap-1.5">
+                                                <!-- 1. Vendor -->
+                                                <div class="flex items-center gap-2">
+                                                    @if($selectedVendor)
+                                                        <svg class="w-3 h-3 text-emerald-500" fill="currentColor"
+                                                            viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd"
+                                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                                clip-rule="evenodd" />
+                                                        </svg>
+                                                    @else
+                                                        <div
+                                                            class="w-3 h-3 rounded-full border-2 border-gray-200 dark:border-gray-600">
+                                                        </div>
+                                                    @endif
+                                                    <span
+                                                        class="text-[9px] font-bold uppercase {{ $selectedVendor ? 'text-emerald-600' : 'text-gray-400' }}">Pilih
+                                                        Vendor</span>
+                                                </div>
+
+                                                <!-- 2. Meta -->
+                                                <div class="flex items-center gap-2">
+                                                    @if($nomorNota && $tanggalPembelian)
+                                                        <svg class="w-3 h-3 text-emerald-500" fill="currentColor"
+                                                            viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd"
+                                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                                clip-rule="evenodd" />
+                                                        </svg>
+                                                    @else
+                                                        <div
+                                                            class="w-3 h-3 rounded-full border-2 border-gray-200 dark:border-gray-600">
+                                                        </div>
+                                                    @endif
+                                                    <span
+                                                        class="text-[9px] font-bold uppercase {{ ($nomorNota && $tanggalPembelian) ? 'text-emerald-600' : 'text-gray-400' }}">No.
+                                                        Nota & Tgl</span>
+                                                </div>
+
+                                                <!-- 3. Cart -->
+                                                <div class="flex items-center gap-2">
+                                                    @if(count($purchaseCart) > 0)
+                                                        <svg class="w-3 h-3 text-emerald-500" fill="currentColor"
+                                                            viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd"
+                                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                                clip-rule="evenodd" />
+                                                        </svg>
+                                                    @else
+                                                        <div
+                                                            class="w-3 h-3 rounded-full border-2 border-gray-200 dark:border-gray-600">
+                                                        </div>
+                                                    @endif
+                                                    <span
+                                                        class="text-[9px] font-bold uppercase {{ count($purchaseCart) > 0 ? 'text-emerald-600' : 'text-gray-400' }}">Barang
+                                                        Di Keranjang</span>
+                                                </div>
+
+                                                <!-- 4. Gudang -->
+                                                @php $hasMissingGudang = collect($purchaseCart)->contains(fn($i) => $i['status'] === 'Received' && !$i['gudang_id']); @endphp
+                                                <div class="flex items-center gap-2">
+                                                    @if(count($purchaseCart) > 0 && !$hasMissingGudang)
+                                                        <svg class="w-3 h-3 text-emerald-500" fill="currentColor"
+                                                            viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd"
+                                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                                clip-rule="evenodd" />
+                                                        </svg>
+                                                    @else
+                                                        <div
+                                                            class="w-3 h-3 rounded-full border-2 border-gray-200 dark:border-gray-600">
+                                                        </div>
+                                                    @endif
+                                                    <span
+                                                        class="text-[9px] font-bold uppercase {{ (count($purchaseCart) > 0 && !$hasMissingGudang) ? 'text-emerald-600' : 'text-gray-400' }}">Tujuan
+                                                        Gudang</span>
+                                                </div>
+
+                                                <!-- 5. Payment -->
+                                                @php
+                                                    $paymentReady = $metodePembayaran && (
+                                                        ($metodePembayaran === 'Cash' && $akunKasId) ||
+                                                        ($metodePembayaran === 'Kredit' && $jatuhTempo && ($jumlahDP == 0 || ($jumlahDP > 0 && $akunKasId)))
+                                                    );
+                                                @endphp
+                                                <div class="flex items-center gap-2">
+                                                    @if($paymentReady)
+                                                        <svg class="w-3 h-3 text-emerald-500" fill="currentColor"
+                                                            viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd"
+                                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                                clip-rule="evenodd" />
+                                                        </svg>
+                                                    @else
+                                                        <div
+                                                            class="w-3 h-3 rounded-full border-2 border-gray-200 dark:border-gray-600">
+                                                        </div>
+                                                    @endif
+                                                    <span
+                                                        class="text-[9px] font-bold uppercase {{ $paymentReady ? 'text-emerald-600' : 'text-gray-400' }}">Metode
+                                                        & Akun Bayar</span>
+                                                </div>
+
+                                                <!-- 6. Invoice -->
+                                                <div class="flex items-center gap-2">
+                                                    @if($compressedInvoice)
+                                                        <svg class="w-3 h-3 text-emerald-500" fill="currentColor"
+                                                            viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd"
+                                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                                                clip-rule="evenodd" />
+                                                        </svg>
+                                                    @else
+                                                        <div
+                                                            class="w-3 h-3 rounded-full border-2 border-gray-200 dark:border-gray-600">
+                                                        </div>
+                                                    @endif
+                                                    <span
+                                                        class="text-[9px] font-bold uppercase {{ $compressedInvoice ? 'text-emerald-600' : 'text-gray-400' }}">Upload
+                                                        Bukti Nota</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 @endif
                             </div>
                         </div>
