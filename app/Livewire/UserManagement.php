@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Livewire;
 
@@ -39,6 +39,12 @@ class UserManagement extends Component
     public $kasUserName;
     public $assignedKasIds = [];
     public $showKasModal = false;
+
+    // === Permission Assignment Modal State ===
+    public $permissionUserId;
+    public $permissionUserName = '';
+    public $assignedPermissionNames = [];
+    public $showPermissionModal = false;
 
     protected function createRules(): array
     {
@@ -210,6 +216,44 @@ class UserManagement extends Component
     }
 
     // =============================================
+    // PERMISSION CHECKLIST
+    // =============================================
+    public function openPermissionModal(int $userId)
+    {
+        $currentUser = auth()->user();
+        if (!$currentUser->hasTeamRole($currentUser->currentTeam, 'admin')) {
+            abort(403, 'Akses ditolak.');
+        }
+
+        $user = User::findOrFail($userId);
+        $this->permissionUserId = $user->id;
+        $this->permissionUserName = $user->name;
+        
+        // Ambil izin yang sudah dimiliki user ini (di tim saat ini)
+        setPermissionsTeamId($currentUser->current_team_id);
+        $this->assignedPermissionNames = $user->getAllPermissions()->pluck('name')->toArray();
+        
+        $this->showPermissionModal = true;
+    }
+
+    public function togglePermission(string $permissionName)
+    {
+        $user = User::findOrFail($this->permissionUserId);
+        $teamId = auth()->user()->current_team_id;
+        setPermissionsTeamId($teamId);
+
+        if (in_array($permissionName, $this->assignedPermissionNames)) {
+            $user->revokePermissionTo($permissionName);
+            $this->assignedPermissionNames = array_values(
+                array_filter($this->assignedPermissionNames, fn($name) => $name !== $permissionName)
+            );
+        } else {
+            $user->givePermissionTo($permissionName);
+            $this->assignedPermissionNames[] = $permissionName;
+        }
+    }
+
+    // =============================================
     // RENDER
     // =============================================
     public function render()
@@ -237,7 +281,7 @@ class UserManagement extends Component
             'ownerId' => $owner->id,
             'gudangs' => Gudang::orderBy('nama')->get(),
             'allKas' => \App\Models\AkunKas::with('user')->where('team_id', $currentUser->current_team_id)->orderBy('nama')->get(),
+            'allPermissions' => \Spatie\Permission\Models\Permission::all(),
         ])->layout('layouts.app', ['header' => '<h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Manajemen Pengguna Tim</h2>']);
     }
 }
-// TEST APPEND
