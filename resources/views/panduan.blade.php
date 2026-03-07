@@ -45,6 +45,14 @@
                                     class="text-xs font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest group-hover:text-orange-600 transition-colors">Master
                                     Data</span>
                             </a>
+                            <a href="#access"
+                                class="group flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-fuchsia-50 dark:hover:bg-fuchsia-900/10 transition-all">
+                                <span
+                                    class="w-2 h-2 bg-fuchsia-500 rounded-full group-hover:scale-150 transition-transform"></span>
+                                <span
+                                    class="text-xs font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest group-hover:text-fuchsia-600 transition-colors">Access
+                                    Control (RBAC)</span>
+                            </a>
                             <a href="#purchase"
                                 class="group flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-all">
                                 <span
@@ -154,6 +162,173 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </section>
+
+                    <!-- 1.5. ACCESS CONTROL (RBAC) -->
+                    <section id="access" class="scroll-mt-24 space-y-8">
+                        <div class="flex items-center gap-4">
+                            <span class="w-12 h-[2px] bg-fuchsia-500"></span>
+                            <h2 class="text-3xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Access Control & Permissions</h2>
+                        </div>
+
+                        <div class="bg-white dark:bg-gray-900 rounded-[3rem] shadow-2xl overflow-hidden border border-gray-50 dark:border-gray-800 p-8 lg:p-12 space-y-8">
+                            
+                            <div class="space-y-4">
+                                <h3 class="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Konsep Hybrid: Roles vs Direct Permissions</h3>
+                                <p class="text-sm font-medium text-gray-600 dark:text-gray-400 leading-relaxed">
+                                    Aplikasi ini menggunakan arsitektur keamanan <b>Hybrid RBAC</b> (Role-Based Access Control) yang menggabungkan kekuatan <i>Jetstream Teams</i> dan <i>Spatie Permissions</i>. Dirancang khusus untuk perusahaan dengan banyak cabang/tim yang membutuhkan fleksibilitas tinggi.
+                                </p>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div class="p-8 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-gray-100 dark:border-gray-800 space-y-4">
+                                    <div class="flex items-center justify-between border-b pb-4 dark:border-gray-700">
+                                        <h4 class="font-black text-gray-900 dark:text-white uppercase tracking-widest text-sm">1. Team Roles (Peran)</h4>
+                                        <span class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-[10px] font-black uppercase">Level Global</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 font-medium leading-relaxed">
+                                        Peran dasar bawaan sistem (contoh: <code class="text-pink-500">admin</code>, <code class="text-pink-500">member</code>). Peran ini menentukan struktur hierarki di dalam sebuah Cabang/Tim. 
+                                        <b>Sebagai contoh:</b> Hanya pengguna dengan Role <code class="text-pink-500">admin</code> yang dapat mengakses menu "User Management" untuk mengundang atau mengeluarkan staf lain.
+                                    </p>
+                                </div>
+
+                                <div class="p-8 bg-fuchsia-50 dark:bg-fuchsia-950/20 rounded-3xl border border-fuchsia-100 dark:border-fuchsia-900/30 space-y-4">
+                                    <div class="flex items-center justify-between border-b border-fuchsia-200 dark:border-fuchsia-900/50 pb-4">
+                                        <h4 class="font-black text-fuchsia-900 dark:text-fuchsia-200 uppercase tracking-widest text-sm">2. Direct Permissions (Izin Langsung)</h4>
+                                        <span class="px-2 py-1 bg-fuchsia-200 dark:bg-fuchsia-900/50 text-fuchsia-700 dark:text-fuchsia-300 rounded text-[10px] font-black uppercase">Level Spesifik</span>
+                                    </div>
+                                    <p class="text-xs text-fuchsia-800 dark:text-fuchsia-300/80 font-medium leading-relaxed">
+                                        Karena Role terlalu kaku, kita menggunakan <b>Izin Langsung</b> ke setiap staf untuk kontrol satuan. Meskipun 5 orang memiliki Role yang sama (<code class="text-pink-500 text-sm">member</code>), Anda bisa mengatur agar Budi hanya boleh input Mutasi Kas, sedangkan Siti hanya boleh input Pembelian.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- CONTOH KASUS LAPANGAN -->
+                            <div class="p-8 bg-blue-50 dark:bg-blue-950/20 rounded-[2.5rem] border border-blue-100 dark:border-blue-900/30 space-y-6">
+                                <div class="flex items-center gap-3 border-b border-blue-200 dark:border-blue-900/50 pb-4">
+                                    <div class="p-2 bg-blue-600 rounded-lg text-white">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                    </div>
+                                    <h4 class="text-lg font-black uppercase text-blue-900 dark:text-blue-300 tracking-tight">Contoh Kasus Nyata di Lapangan</h4>
+                                </div>
+                                
+                                <p class="text-[13px] text-blue-800 dark:text-blue-300/80 font-medium leading-relaxed italic">
+                                    Bayangkan Anda memiliki sebuah Cabang/Tim bernama "Toko Pusat". Di sana ada 3 orang staf yang semuanya Anda beri Role dasar <code class="bg-blue-200 dark:bg-blue-900 px-1 rounded">member</code> (agar mereka tidak bisa masuk ke menu User Management). Bagaimana Anda membagi tugas mereka?
+                                </p>
+
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-blue-100 dark:border-blue-800 space-y-3 relative overflow-hidden">
+                                        <div class="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-bl-full"></div>
+                                        <h5 class="font-black text-gray-900 dark:text-white text-sm">Staf A: (Bag. Gudang)</h5>
+                                        <ul class="space-y-2 text-[11px] text-gray-600 dark:text-gray-400 font-medium">
+                                            <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span> Boleh <span class="font-bold text-gray-900 dark:text-gray-300">Terima Pembelian</span></li>
+                                            <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span> Boleh <span class="font-bold text-gray-900 dark:text-gray-300">Mutasi Antar Gudang</span></li>
+                                            <li class="flex items-start gap-2 text-rose-500/80"><span class="mt-0.5">✕</span> Dilarang <span class="font-bold">Input Retur</span></li>
+                                        </ul>
+                                    </div>
+                                    <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-blue-100 dark:border-blue-800 space-y-3 relative overflow-hidden">
+                                        <div class="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-bl-full"></div>
+                                        <h5 class="font-black text-gray-900 dark:text-white text-sm">Staf B: (Bag. Pembelian)</h5>
+                                        <ul class="space-y-2 text-[11px] text-gray-600 dark:text-gray-400 font-medium">
+                                            <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span> Boleh <span class="font-bold text-gray-900 dark:text-gray-300">Buat PO Baru</span></li>
+                                            <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span> Boleh <span class="font-bold text-gray-900 dark:text-gray-300">Manajemen Vendor</span></li>
+                                            <li class="flex items-start gap-2 text-rose-500/80"><span class="mt-0.5">✕</span> Dilarang <span class="font-bold">Lihat Laba/Rugi</span></li>
+                                        </ul>
+                                    </div>
+                                    <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-blue-100 dark:border-blue-800 space-y-3 relative overflow-hidden">
+                                        <div class="absolute top-0 right-0 w-16 h-16 bg-purple-500/10 rounded-bl-full"></div>
+                                        <h5 class="font-black text-gray-900 dark:text-white text-sm">Staf C: (Bag. Keuangan)</h5>
+                                        <ul class="space-y-2 text-[11px] text-gray-600 dark:text-gray-400 font-medium">
+                                            <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span> Boleh <span class="font-bold text-gray-900 dark:text-gray-300">Bayar Hutang (Kas)</span></li>
+                                            <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span> Boleh <span class="font-bold text-gray-900 dark:text-gray-300">Lihat Neraca Laporan</span></li>
+                                            <li class="flex items-start gap-2 text-rose-500/80"><span class="mt-0.5">✕</span> Dilarang <span class="font-bold">Input Barang Fisik</span></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <p class="text-[11px] text-blue-700 dark:text-blue-400 font-bold bg-white dark:bg-gray-900 w-fit px-3 py-1.5 rounded-full border border-blue-200 dark:border-blue-800">
+                                    💡 Kesimpulan: Dengan Izin Langsung (Direct Permissions), tugas dapat diisolasi secara sempurna tanpa perlu membuat puluhan Role (Jabatan) fiktif yang baru.
+                                </p>
+                            </div>
+
+                            <!-- SOP SECTION -->
+                            <div class="p-8 bg-gradient-to-br from-gray-900 to-black rounded-[2.5rem] shadow-xl text-white space-y-8">
+                                <div class="flex items-center justify-between border-b border-white/20 pb-4">
+                                    <h4 class="text-xl font-black uppercase tracking-widest text-fuchsia-400">SOP Pengaturan Langkah demi Langkah</h4>
+                                    <span class="px-3 py-1 bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/50 rounded-full text-[10px] font-black uppercase tracking-widest">Hanya Untuk Admin</span>
+                                </div>
+                                
+                                <div class="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
+                                    
+                                    <!-- Step 1 -->
+                                    <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                        <div class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-gray-900 bg-fuchsia-500 text-white font-black shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-[0_0_0_4px_rgba(217,70,239,0.2)] z-10 transition-all duration-300">
+                                            1
+                                        </div>
+                                        <div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-fuchsia-500/50 transition-colors">
+                                            <h5 class="font-bold text-sm text-fuchsia-300 mb-1 uppercase tracking-wide">Buka Profil Tim</h5>
+                                            <p class="text-[12px] text-gray-400 leading-relaxed">Pastikan Anda login sebagai <code class="text-white">Admin</code>. Klik ikon Avatar Anda di sudut kanan atas menu, lalu pilih <b>User Management</b> di bawah grup "Manage Team".</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 2 -->
+                                    <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                        <div class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-gray-900 bg-fuchsia-500 text-white font-black shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-[0_0_0_4px_rgba(217,70,239,0.2)] z-10 transition-all duration-300">
+                                            2
+                                        </div>
+                                        <div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-fuchsia-500/50 transition-colors">
+                                            <h5 class="font-bold text-sm text-fuchsia-300 mb-1 uppercase tracking-wide">Pilih Staf</h5>
+                                            <p class="text-[12px] text-gray-400 leading-relaxed">Pada tabel daftar anggota tim, temukan nama staf yang akan ditugaskan. Di kolom "Aksi", klik tombol biru muda bertuliskan <span class="inline-flex items-center justify-center px-2 py-0.5 bg-cyan-100 text-cyan-700 rounded text-[10px] font-bold mx-1">Akses Fitur</span>.</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 3 -->
+                                    <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                        <div class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-gray-900 bg-fuchsia-500 text-white font-black shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-[0_0_0_4px_rgba(217,70,239,0.2)] z-10 transition-all duration-300">
+                                            3
+                                        </div>
+                                        <div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-2xl bg-white/10 border border-fuchsia-500/30 shadow-[0_4px_20px_-4px_rgba(217,70,239,0.3)] transition-colors">
+                                            <h5 class="font-bold text-sm text-white mb-2 uppercase tracking-wide">Sesuaikan Kunci Gembok</h5>
+                                            <p class="text-[12px] text-gray-300 leading-relaxed mb-3">Sebuah panel <i>Checklist</i> akan muncul (Pop-up). Centang (✓) izin yang diperbolehkan untuk staf tersebut sesuai diskripsi tugas pekerjaannya hari itu.</p>
+                                            <div class="bg-black/50 p-3 rounded-lg border border-white/5 space-y-2">
+                                                <div class="flex items-center justify-between opacity-50">
+                                                    <span class="text-[10px] uppercase text-gray-400">Inventory Master</span>
+                                                    <input type="checkbox" checked disabled class="rounded bg-black border-gray-600 text-fuchsia-500">
+                                                </div>
+                                                <div class="flex items-center justify-between">
+                                                    <span class="text-[10px] uppercase text-white font-bold tracking-wide">create_pembelian</span>
+                                                    <input type="checkbox" checked class="rounded bg-gray-900 border-gray-600 text-fuchsia-500">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 4 -->
+                                    <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                        <div class="flex items-center justify-center w-10 h-10 rounded-full border-4 border-gray-900 bg-emerald-500 text-white font-black shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-[0_0_0_4px_rgba(16,185,129,0.2)] z-10 transition-all duration-300">
+                                            ✓
+                                        </div>
+                                        <div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-2xl bg-white/5 border border-emerald-500/30 transition-colors">
+                                            <h5 class="font-bold text-sm text-emerald-400 mb-1 uppercase tracking-wide">Tersimpan Otomatis</h5>
+                                            <p class="text-[12px] text-gray-400 leading-relaxed">Sistem menganut prinsip <i>Real-time Save</i>. Setiap kali Anda mencentang, detik itu juga akses langsung aktif di perangkat staf tersebut. Tidak perlu menekan tombol "Simpan". Klik area kosong untuk menutup panel.</p>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <div class="mt-8 p-4 bg-rose-500/10 rounded-xl border-l-4 border-rose-500 flex items-start gap-4">
+                                    <div class="text-rose-500 mt-1">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <h6 class="text-[11px] font-black uppercase text-rose-400 tracking-widest">Aturan Isolasi Cabang</h6>
+                                        <p class="text-[11px] text-rose-200/70 font-medium leading-relaxed italic">
+                                            Hati-hati! Semua *checklists* yang Anda atur ini dikunci pada label **Tim/Cabang yang sedang aktif**. Jika Staf Eko dipindah dari "Cabang Jakarta" ke "Cabang Madiun", profil Izin Eko di Madiun dimulai dari kondisi kosong (terkunci total). Admin di Madiun harus mengatur ulang *checklist* Eko sesuai jabatannya di cabang baru tersebut.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     </section>
 
